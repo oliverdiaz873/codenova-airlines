@@ -1,0 +1,36 @@
+# Sistema operativo
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Node / Vite (para cuando exista implementación)
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.local
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Pruebas
+playwright-report/
+test-results/
+
+# Temporales
+*.log
+*.tmp
