@@ -1,0 +1,39 @@
+/* ---------- CTA Banner ---------- */
+.cta-banner {
+  padding: var(--space-3xl) 0;
+  background: var(--cn-navy);
+  text-align: center;
+}
+
+.cta-banner__content {
+  max-width: 600px;
+  margin-inline: auto;
+}
+
+.cta-banner__title {
+  color: var(--cn-white);
+  margin-bottom: var(--space-sm);
+}
+
+.cta-banner__desc {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.0625rem;
+  margin-bottom: var(--space-lg);
+}
+
+.cta-banner__actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .cta-banner {
+    padding: var(--space-2xl) 0;
+  }
+  .cta-banner__actions {
+    flex-direction: column;
+    align-items: center;
+  }
+}

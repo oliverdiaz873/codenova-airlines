@@ -1,0 +1,122 @@
+/* ---------- Experience Section — Tesla-style full-bleed image ---------- */
+.experience {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: var(--cn-navy);
+}
+
+.experience__bg {
+  position: absolute;
+  inset: 0;
+}
+
+.experience__bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.experience__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(10, 22, 40, 0.90) 0%,
+    rgba(10, 22, 40, 0.65) 50%,
+    rgba(10, 22, 40, 0.30) 100%
+  );
+}
+
+.experience__content {
+  position: relative;
+  z-index: 2;
+  max-width: 560px;
+  padding: var(--space-3xl) 0;
+}
+
+.experience__label {
+  display: inline-block;
+  color: var(--cn-gold);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-sm);
+}
+
+.experience__title {
+  color: var(--cn-white);
+  margin-bottom: var(--space-md);
+}
+
+.experience__desc {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  margin-bottom: var(--space-lg);
+}
+
+.experience__features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.experience__feature {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.experience__feature-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: rgba(200, 164, 90, 0.12);
+  border: 1px solid rgba(200, 164, 90, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.experience__feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.experience__feature-title {
+  color: var(--cn-white);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.experience__feature-desc {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 768px) {
+  .experience {
+    min-height: auto;
+  }
+
+  .experience__overlay {
+    background: rgba(10, 22, 40, 0.85);
+  }
+
+  .experience__content {
+    padding: var(--space-2xl) 0;
+  }
+
+  .experience__features {
+    grid-template-columns: 1fr;
+  }
+}
