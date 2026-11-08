@@ -241,7 +241,8 @@
   text-align: center;
 }
 
-.login-form__switch button {
+.login-form__switch button,
+.login-form__switch a {
   color: #102a43;
   font: inherit;
   font-weight: 700;
@@ -249,7 +250,8 @@
   text-underline-offset: 0.15em;
 }
 
-.login-form__switch button:hover {
+.login-form__switch button:hover,
+.login-form__switch a:hover {
   color: #315d7d;
 }
 

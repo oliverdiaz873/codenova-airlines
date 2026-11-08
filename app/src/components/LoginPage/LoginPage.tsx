@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { type DemoCustomer } from '@/data/customers';
 import './LoginPage.css';
 
@@ -18,7 +18,8 @@ export function LoginPage({
   onRegister,
   onLogout,
 }: LoginPageProps) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode = searchParams.get('mode') === 'register' ? 'register' : 'login';
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [customerType, setCustomerType] = useState<DemoCustomer['type']>('Minorista');
@@ -28,7 +29,7 @@ export function LoginPage({
   const handleLogout = () => {
     setEmail('');
     setError('');
-    setMode('login');
+    setSearchParams({}, { replace: true });
     onLogout();
   };
 
@@ -68,7 +69,7 @@ export function LoginPage({
   };
 
   const changeMode = (nextMode: 'login' | 'register') => {
-    setMode(nextMode);
+    setSearchParams(nextMode === 'register' ? { mode: 'register' } : {}, { replace: true });
     setError('');
   };
 
@@ -155,8 +156,8 @@ export function LoginPage({
                 Esta es una demostración. No se usa contraseña y los datos se reinician al recargar.
               </p>
               <p className="login-form__switch">
-                ¿Aún no tienes cuenta?{' '}
-                <button type="button" onClick={() => changeMode('register')}>Crear cuenta</button>
+                ¿Todavía no tienes una cuenta?{' '}
+                <Link to="/ingresar?mode=register">Crear una cuenta</Link>
               </p>
             </div>
           ) : (

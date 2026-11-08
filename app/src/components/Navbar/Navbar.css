@@ -89,19 +89,66 @@
   color: #102A43;
 }
 
+.navbar__account-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 .navbar__cta {
   padding: 0.6rem 1.5rem;
   font-size: 0.8125rem;
 }
 
-.navbar__nav .navbar__cta {
-  background: #FFFFFF;
-  color: #111111;
+.navbar__cta--login {
+  display: inline-flex;
+  min-height: 2.875rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(16, 42, 67, 0.28);
+  border-radius: var(--radius-pill);
+  padding: 0.875rem 1.5rem;
+  background: #102A43;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-.navbar__nav .navbar__cta:hover {
-  background: #FFFFFF;
-  color: #111111;
+.navbar__cta--login:hover {
+  background: #1b4262;
+  color: #fff;
+}
+
+.navbar__account-actions .navbar__cta--register {
+  min-height: 2.875rem;
+  padding: 0.875rem 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  color: #102A43;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+.navbar__account-actions .navbar__cta--register:hover {
+  background: #f3f4f6;
+  color: #102A43;
+}
+
+.navbar__mobile-login {
+  display: none;
+  color: #102A43;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 /* ---- Mobile hamburger ---- */
@@ -151,6 +198,18 @@
     display: flex;
   }
 
+  .navbar__account-actions {
+    display: none;
+  }
+
+  .navbar__mobile-login {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    margin-left: auto;
+    margin-right: 1rem;
+  }
+
   .navbar__toggle-bar {
     background: #102A43;
   }
@@ -183,8 +242,4 @@
     font-weight: 500;
   }
 
-  .navbar__cta {
-    padding: 0.875rem 2rem;
-    font-size: 1rem;
-  }
 }

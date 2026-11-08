@@ -50,10 +50,20 @@ export function Navbar() {
           <a href="#routes" className="navbar__link" onClick={() => setIsMobileOpen(false)}>
             Vuelos
           </a>
-          <Link to="/ingresar" className="btn btn-primary navbar__cta" onClick={() => setIsMobileOpen(false)}>
+        </nav>
+
+        <div className="navbar__account-actions">
+          <Link to="/ingresar" className="navbar__cta navbar__cta--login">
             Iniciar sesión
           </Link>
-        </nav>
+          <Link to="/ingresar?mode=register" className="btn btn-primary navbar__cta navbar__cta--register">
+            Crear cuenta
+          </Link>
+        </div>
+
+        <Link to="/ingresar" className="navbar__mobile-login">
+          Iniciar sesión
+        </Link>
 
         <button
           className={`navbar__toggle ${isMobileOpen ? 'navbar__toggle--open' : ''}`}

@@ -1,4 +1,5 @@
 import './Hero.css';
+import { Link } from 'react-router';
 
 export function Hero() {
   return (
@@ -30,6 +31,13 @@ export function Hero() {
               >
                 Ver vuelos
               </a>
+              <Link
+                to="/ingresar?mode=register"
+                className="hero__button hero__button--secondary"
+                id="hero-cta-register"
+              >
+                Crear cuenta
+              </Link>
             </div>
           </div>
         </div>
