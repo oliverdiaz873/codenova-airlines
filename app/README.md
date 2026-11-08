@@ -20,6 +20,8 @@ npm run lint
 
 `npm run build` ejecuta TypeScript sin emitir archivos y genera el paquete de producción con Vite. `npm run lint` ejecuta Oxlint.
 
+La configuración de [Vercel](./vercel.json) reescribe las rutas de la aplicación a `index.html`, necesario para que rutas como `/ingresar` funcionen al abrirlas directamente o recargar la página.
+
 ## Rutas de la aplicación
 
 - `/`: landing pública.

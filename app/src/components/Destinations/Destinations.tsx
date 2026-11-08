@@ -4,7 +4,7 @@ export function Destinations() {
   return (
     <section className="destinations" id="destinations">
       <div className="destinations__bg">
-        <video autoPlay muted loop playsInline preload="metadata" poster="/hero-night.png" tabIndex={-1}>
+        <video autoPlay muted loop playsInline preload="metadata" tabIndex={-1}>
           <source src="/videos/destinos-video.mp4" type="video/mp4" />
         </video>
       </div>

@@ -11,7 +11,6 @@ export function Hero() {
             loop
             playsInline
             preload="auto"
-            poster="/hero-airplane.png"
             tabIndex={-1}
           >
             <source src="/videos/hero-video.mp4" type="video/mp4" />

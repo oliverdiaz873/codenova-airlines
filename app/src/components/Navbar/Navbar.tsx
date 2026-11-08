@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router';
 import './Navbar.css';
 
 export function Navbar() {
@@ -49,9 +50,9 @@ export function Navbar() {
           <a href="#routes" className="navbar__link" onClick={() => setIsMobileOpen(false)}>
             Vuelos
           </a>
-          <a href="/ingresar" className="btn btn-primary navbar__cta" onClick={() => setIsMobileOpen(false)}>
+          <Link to="/ingresar" className="btn btn-primary navbar__cta" onClick={() => setIsMobileOpen(false)}>
             Iniciar sesión
-          </a>
+          </Link>
         </nav>
 
         <button

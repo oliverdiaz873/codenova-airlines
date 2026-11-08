@@ -25,7 +25,6 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: center 40% / cover no-repeat url('/hero-airplane.png');
 }
 
 .hero__bg video {
