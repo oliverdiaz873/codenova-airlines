@@ -1,7 +1,22 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from 'react-router';
 import { type DemoCustomer } from '@/data/customers';
 import './LoginPage.css';
+
+/** Internal destinations allowed for contextual return after login (C-1). */
+const ALLOWED_FROM = ['/buscar', '/panel', '/reservar'] as const;
+
+function isAllowedFrom(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    (ALLOWED_FROM as readonly string[]).includes(value)
+  );
+}
 
 interface LoginPageProps {
   activeCustomer: DemoCustomer | null;
@@ -19,7 +34,18 @@ export function LoginPage({
   onLogout,
 }: LoginPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const mode = searchParams.get('mode') === 'register' ? 'register' : 'login';
+
+  const stateFrom = (location.state as { from?: unknown } | null)?.from;
+  const paramFrom = searchParams.get('from');
+  const from = isAllowedFrom(stateFrom)
+    ? stateFrom
+    : isAllowedFrom(paramFrom)
+      ? paramFrom
+      : null;
+  const postLoginTarget = from ?? '/panel';
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [customerType, setCustomerType] = useState<DemoCustomer['type']>('Minorista');
@@ -45,6 +71,7 @@ export function LoginPage({
 
     setError('');
     onLogin(customer);
+    navigate(postLoginTarget, { replace: true });
   };
 
   const handleRegister = (event: FormEvent<HTMLFormElement>) => {
@@ -66,10 +93,14 @@ export function LoginPage({
 
     setError('');
     onRegister(newCustomer);
+    navigate(postLoginTarget, { replace: true });
   };
 
   const changeMode = (nextMode: 'login' | 'register') => {
-    setSearchParams(nextMode === 'register' ? { mode: 'register' } : {}, { replace: true });
+    const params: Record<string, string> =
+      nextMode === 'register' ? { mode: 'register' } : {};
+    if (from) params.from = from;
+    setSearchParams(params, { replace: true });
     setError('');
   };
 
@@ -104,8 +135,8 @@ export function LoginPage({
                 <span>{activeCustomer.miles.toLocaleString('es-DO')} millas</span>
               </p>
               <p className="login-form__note">
-                El panel de cliente todavía no está disponible. Esta sesión solo se conserva en memoria
-                y se reiniciará al recargar.
+                Tu sesión de demostración se mantiene en memoria y se
+                reiniciará al recargar la página.
               </p>
               <button className="login-form__submit" type="button" onClick={handleLogout}>
                 Cerrar sesión
@@ -146,6 +177,22 @@ export function LoginPage({
                 </button>
               </form>
 
+              {from === '/buscar' && (
+                <p className="login-form__register">
+                  Para buscar vuelos necesitas una cuenta. Inicia sesión o{' '}
+                  <Link
+                    to={
+                      from
+                        ? `/ingresar?mode=register&from=${from}`
+                        : '/ingresar?mode=register'
+                    }
+                  >
+                    crea una cuenta
+                  </Link>{' '}
+                  para continuar.
+                </p>
+              )}
+
               <details className="login-form__demo">
                 <summary>Cuentas de demostración</summary>
                 <p>minorista@codenova.demo</p>
@@ -157,7 +204,15 @@ export function LoginPage({
               </p>
               <p className="login-form__switch">
                 ¿Todavía no tienes una cuenta?{' '}
-                <Link to="/ingresar?mode=register">Crear una cuenta</Link>
+                <Link
+                  to={
+                    from
+                      ? `/ingresar?mode=register&from=${from}`
+                      : '/ingresar?mode=register'
+                  }
+                >
+                  Crear una cuenta
+                </Link>
               </p>
             </div>
           ) : (

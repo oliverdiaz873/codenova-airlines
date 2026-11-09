@@ -1,12 +1,43 @@
 import { useState } from 'react';
-import { BrowserRouter, Route, Routes as RouterRoutes } from 'react-router';
+import {
+  BrowserRouter,
+  Navigate,
+  Outlet,
+  Route,
+  Routes as RouterRoutes,
+  useLocation,
+} from 'react-router';
 import { Navbar } from '@/components/Navbar/Navbar';
 import { Hero } from '@/components/Hero/Hero';
 import { Destinations } from '@/components/Destinations/Destinations';
 import { Routes as FlightRoutes } from '@/components/Routes/Routes';
 import { Footer } from '@/components/Footer/Footer';
 import { LoginPage } from '@/components/LoginPage/LoginPage';
+import { RequireCustomer } from '@/components/RequireCustomer';
+import { ClientPanel } from '@/components/ClientPanel/ClientPanel';
+import { SearchPage } from '@/components/SearchPage/SearchPage';
+import { BookingStub } from '@/components/BookingStub/BookingStub';
 import { initialCustomers, type DemoCustomer } from '@/data/customers';
+
+function AppLayout({
+  customer,
+  onLogout,
+}: {
+  customer: DemoCustomer | null;
+  onLogout: () => void;
+}) {
+  const { pathname } = useLocation();
+  return (
+    <>
+      <Navbar
+        customer={customer}
+        onLogout={onLogout}
+        forceSolid={pathname !== '/'}
+      />
+      <Outlet />
+    </>
+  );
+}
 
 export default function App() {
   const [customers, setCustomers] = useState<DemoCustomer[]>(initialCustomers);
@@ -17,23 +48,33 @@ export default function App() {
     setActiveCustomer(customer);
   };
 
+  const logout = () => setActiveCustomer(null);
+
   return (
     <BrowserRouter>
       <RouterRoutes>
         <Route
-          path="/"
-          element={
-            <>
-              <Navbar />
-              <main>
-                <Hero />
-                <Destinations />
-                <FlightRoutes />
-              </main>
-              <Footer />
-            </>
-          }
-        />
+          element={<AppLayout customer={activeCustomer} onLogout={logout} />}
+        >
+          <Route
+            path="/"
+            element={
+              <>
+                <main>
+                  <Hero />
+                  <Destinations />
+                  <FlightRoutes />
+                </main>
+                <Footer />
+              </>
+            }
+          />
+          <Route element={<RequireCustomer customer={activeCustomer} />}>
+            <Route path="/panel" element={<ClientPanel onLogout={logout} />} />
+            <Route path="/buscar" element={<SearchPage />} />
+            <Route path="/reservar" element={<BookingStub />} />
+          </Route>
+        </Route>
         <Route
           path="/ingresar"
           element={
@@ -42,10 +83,11 @@ export default function App() {
               customers={customers}
               onLogin={setActiveCustomer}
               onRegister={registerCustomer}
-              onLogout={() => setActiveCustomer(null)}
+              onLogout={logout}
             />
           }
         />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </RouterRoutes>
     </BrowserRouter>
   );

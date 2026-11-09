@@ -1,10 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { type DemoCustomer } from '@/data/customers';
 import './Navbar.css';
 
-export function Navbar() {
+interface NavbarProps {
+  customer?: DemoCustomer | null;
+  onLogout?: () => void;
+  /** Forces the solid variant on non-landing pages (fixed navbar over light backgrounds). */
+  forceSolid?: boolean;
+}
+
+export function Navbar({ customer = null, onLogout, forceSolid = false }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isLanding = location.pathname === '/';
+  const isSolid = isScrolled || forceSolid;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -23,9 +36,15 @@ export function Navbar() {
     return () => { document.body.style.overflow = ''; };
   }, [isMobileOpen]);
 
+  const handleLogout = () => {
+    setIsMobileOpen(false);
+    onLogout?.();
+    navigate('/', { replace: true });
+  };
+
   return (
     <header
-      className={`navbar ${isScrolled ? 'navbar--solid' : 'navbar--transparent'}`}
+      className={`navbar ${isSolid ? 'navbar--solid' : 'navbar--transparent'}`}
       id="main-nav"
     >
       <div className="navbar__inner">
@@ -41,29 +60,65 @@ export function Navbar() {
           className={`navbar__nav ${isMobileOpen ? 'navbar__nav--open' : ''}`}
           id="primary-navigation"
         >
-          <a href="/" className="navbar__link" onClick={() => setIsMobileOpen(false)}>
-            Inicio
-          </a>
-          <a href="#destinations" className="navbar__link" onClick={() => setIsMobileOpen(false)}>
-            Destinos
-          </a>
-          <a href="#routes" className="navbar__link" onClick={() => setIsMobileOpen(false)}>
-            Vuelos
-          </a>
+          {isLanding ? (
+            <>
+              <a href="/" className="navbar__link" onClick={() => setIsMobileOpen(false)}>
+                Inicio
+              </a>
+              <a href="#destinations" className="navbar__link" onClick={() => setIsMobileOpen(false)}>
+                Destinos
+              </a>
+              <a href="#routes" className="navbar__link" onClick={() => setIsMobileOpen(false)}>
+                Vuelos
+              </a>
+            </>
+          ) : customer ? (
+            <>
+              <Link to="/buscar" className="navbar__link" onClick={() => setIsMobileOpen(false)}>
+                Buscar vuelos
+              </Link>
+              <button type="button" className="navbar__link" onClick={handleLogout}>
+                Cerrar sesión
+              </button>
+            </>
+          ) : null}
         </nav>
 
         <div className="navbar__account-actions">
-          <Link to="/ingresar" className="navbar__cta navbar__cta--login">
-            Iniciar sesión
-          </Link>
-          <Link to="/ingresar?mode=register" className="btn btn-primary navbar__cta navbar__cta--register">
-            Crear cuenta
-          </Link>
+          {customer ? (
+            <>
+              <Link to="/panel" className="navbar__cta navbar__cta--login">
+                Mi panel
+              </Link>
+              <button
+                type="button"
+                className="navbar__cta navbar__cta--register"
+                onClick={handleLogout}
+              >
+                Cerrar sesión
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/ingresar" className="navbar__cta navbar__cta--login">
+                Iniciar sesión
+              </Link>
+              <Link to="/ingresar?mode=register" className="btn btn-primary navbar__cta navbar__cta--register">
+                Crear cuenta
+              </Link>
+            </>
+          )}
         </div>
 
-        <Link to="/ingresar" className="navbar__mobile-login">
-          Iniciar sesión
-        </Link>
+        {customer ? (
+          <Link to="/panel" className="navbar__mobile-login">
+            Mi panel
+          </Link>
+        ) : (
+          <Link to="/ingresar" className="navbar__mobile-login">
+            Iniciar sesión
+          </Link>
+        )}
 
         <button
           className={`navbar__toggle ${isMobileOpen ? 'navbar__toggle--open' : ''}`}

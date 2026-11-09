@@ -1,0 +1,131 @@
+.booking-stub {
+  min-height: 100vh;
+  padding: calc(var(--nav-height) + var(--space-xl)) var(--space-md)
+    var(--space-2xl);
+  background: var(--cn-off-white);
+}
+
+.booking-stub__card {
+  width: 100%;
+  max-width: 40rem;
+  margin-inline: auto;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border-radius: var(--radius-lg);
+  background: var(--cn-white);
+  box-shadow: var(--shadow-md);
+}
+
+.booking-stub__eyebrow {
+  display: block;
+  margin-bottom: 0.75rem;
+  color: var(--cn-gray-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.booking-stub__title {
+  color: var(--cn-navy);
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.booking-stub__legs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.booking-stub__leg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: var(--space-sm);
+  border: 1px solid var(--cn-gray-100);
+  border-radius: var(--radius-sm);
+  background: var(--cn-off-white);
+}
+
+.booking-stub__leg-label {
+  color: var(--cn-gold-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.booking-stub__leg-flight {
+  color: var(--cn-navy);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.booking-stub__leg-time {
+  color: var(--cn-gray-600);
+  font-size: 0.8125rem;
+  text-transform: capitalize;
+}
+
+.booking-stub__details {
+  margin-top: 1.5rem;
+  border-block: 1px solid var(--cn-gray-100);
+}
+
+.booking-stub__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-block: 0.75rem;
+}
+
+.booking-stub__row dt {
+  color: var(--cn-gray-600);
+  font-size: 0.875rem;
+}
+
+.booking-stub__row dd {
+  color: var(--cn-navy);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.booking-stub__notice {
+  margin-top: 1.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  color: #8a5a00;
+  background: #fdf6e7;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.booking-stub__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: 1.5rem;
+}
+
+.booking-stub__secondary {
+  padding: 0.875rem 1.5rem;
+  border: 1.5px solid var(--cn-navy);
+  border-radius: var(--radius-pill);
+  color: var(--cn-navy);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.booking-stub__secondary:hover {
+  background: var(--cn-navy);
+  color: var(--cn-white);
+}

@@ -3,10 +3,10 @@
 **Proyecto:** CodeNova Airlines — Prototipo frontend de reserva de vuelos
 **Asignatura:** INF-3290
 **Tipo de documento:** Plan funcional y estado del proyecto (documento único)
-**Versión:** 2.4 — Estado actualizado de la implementación
+**Versión:** 2.7 — CU-03 implementado como prototipo
 **Fecha de cierre:** 2026-11-06
 **Última actualización:** 2026-11-08
-**Estado:** Planificación funcional **CERRADA**. C-1, C-2 y C-3 resueltas. Existe una implementación frontend prototipo con landing pública y flujo simulado de ingreso/registro. La revisión visual continúa; reserva y paneles de Cliente y Agente no están implementados. Pendientes operativos identificados (4.8, 9.4).
+**Estado:** Planificación funcional **CERRADA**. C-1, C-2 y C-3 resueltas; las reglas de búsqueda CU-03 están aprobadas (3.9) y **existe un prototipo de CU-03**: rutas `/panel`, `/buscar` y `/reservar` (stub provisional), protección de sesión, retorno contextual tras ingreso/registro y disponibilidad ficticia determinista. Los 20 servicios programados ficticios y el mapa de 30 asientos están aprobados (4.4, 4.7). CU-04, las reservas reales y el panel del Agente no están implementados. Permanecen pendientes la cancelación parcial y las distancias (4.8, 9.4).
 
 ---
 
@@ -35,12 +35,14 @@
 | C-1 — Acceso de clientes demo | **[C]** Resuelta (3.8) |
 | C-2 — Conversión de millas a descuento | **[C]** Resuelta y aprobada (5.2) |
 | C-3 — Representación del viaje | **[C]** Resuelta y aprobada (4.8) |
+| CU-03 — Búsqueda de vuelos | **[C]** Reglas de acceso, trayecto, pasajeros, disponibilidad y límite definidas (3.9) |
 | Arquitectura feature-based | **[E]** Vigente; estructura interna **[R]** |
 | Stack React + Vite + TypeScript | **[E]** Aprobado; no autoriza inicialización |
 | Diseño visual | Landing implementada como prototipo; su revisión visual continúa |
-| Implementación | Frontend inicial implementado: landing pública y flujo simulado `/ingresar` |
-| Funcionalidad pendiente | Reserva, paneles de Cliente y Agente, y otros alcances excluidos |
-| Pendientes operativos | Documentados en 4.8 y 9.4; no bloquean la landing |
+| Implementación | Frontend prototipo: landing pública, flujo `/ingresar`, panel mínimo `/panel`, CU-03 en `/buscar` y stub `/reservar` |
+| Funcionalidad pendiente | CU-04 (reserva real), panel del Agente, y otros alcances excluidos |
+| Datos de vuelos y mapa | 20 servicios ficticios y mapa 10 × 3 aprobados (4.4, 4.7) |
+| Pendientes operativos | Cancelación parcial y distancias (4.8, 9.4) |
 
 **Próxima etapa:** revisión visual de la implementación existente y definición explícita de cualquier cambio adicional.
 
@@ -174,6 +176,7 @@ CU-01 es la única función de la landing pública. CU-03 y CU-04 se ejecutan en
 | Cierre de sesión del cliente | El Cliente puede cerrar su sesión simulada y volver a `/`. |
 | Búsqueda y reserva | CU-03 y CU-04 requieren ser Cliente con sesión activa. |
 | Intento sin sesión | El panel y CU-03 dirigen a `/ingresar`, donde se muestra el aviso de registro y el enlace a CU-02. En CU-04 se muestra «Para reservar necesitas una cuenta», con «Crear cuenta» como acción principal y «Ya soy cliente» como secundaria (3.8). |
+| Retorno después del ingreso | Si el ingreso o registro se inició al intentar acceder a CU-03, al completar el flujo se regresa a la búsqueda. Si se accedió desde el header, se abre el panel del Cliente (3.8, 3.9). |
 
 ### 3.4 Clasificación del cliente
 
@@ -216,7 +219,7 @@ CU-01 es la única función de la landing pública. CU-03 y CU-04 se ejecutan en
 | Caso | Actor | Función | Ubicación |
 |---|---|---|---|
 | **CU-01** Consultar información de vuelo | Visitante, Cliente y Agente | Consulta pública de información de vuelos | Landing `/` |
-| **CU-03** Buscar vuelos | Cliente | Búsqueda por destino y hora de partida | Panel del Cliente |
+| **CU-03** Buscar vuelos | Cliente con sesión activa | Búsqueda de ida y vuelta por origen, destino y fechas, con pasajeros | Panel del Cliente |
 | **CU-04** Reservar vuelo | Cliente registrado | Reserva con número de vuelo y asiento | Panel del Cliente |
 
 La landing ejecuta **únicamente CU-01**. No busca, no filtra por criterios y no reserva.
@@ -226,13 +229,13 @@ La landing ejecuta **únicamente CU-01**. No busca, no filtra por criterios y no
 1. **La landing ejecuta únicamente CU-01.** No incorpora la búsqueda de CU-03.
 2. **Se elimina el filtro por destino de la landing.** Un filtro es un criterio de búsqueda y pertenece a CU-03.
 3. **Se conservan las tarifas y los días de operación aprobados en PA-2** como información del catálogo.
-4. **El origen se muestra como información, no como criterio de búsqueda.** No existe en el modelo académico de `Vuelo`; es una extensión del proyecto.
+4. **En CU-01, el origen se muestra como información, no como criterio de búsqueda.** La selección de origen sí forma parte de CU-03 en el panel privado. No existe en el modelo académico de `Vuelo`; es una extensión del proyecto.
 5. **No se muestra disponibilidad numérica.** La capacidad y las plazas pertenecen a la reserva, no a la consulta pública.
-6. **Si un Visitante intenta acceder a CU-03, recibe un aviso de registro.** No se ejecuta la búsqueda.
-7. **Se muestran los horarios publicados cuando están definidos y verificados.** Mientras no lo estén, se indica «Horario por confirmar»; no se inventan valores (4.7).
+6. **Si un Visitante intenta acceder a CU-03, se dirige al flujo de ingreso o registro según C-1.** No se ejecuta la búsqueda. Al completar el ingreso o registro iniciado desde CU-03, regresa a la búsqueda (3.8, 3.9).
+7. **Se muestran los horarios definidos para el conjunto de demostración**, identificándolos como datos ficticios del prototipo y no como horarios comerciales verificados (4.7). Si un horario de demostración no está definido, se indica «Horario por confirmar».
 8. **Se sustituye «Consultar» por «Ver vuelos»** en la navegación y en las llamadas a la acción de la landing.
 
-**Consecuencia de diseño:** el catálogo público muestra conexiones, tarifas, días de operación y horarios verificados. No ofrece campos de origen, destino o fecha que generen resultados.
+**Consecuencia de diseño:** el catálogo público muestra conexiones, tarifas, días de operación y, cuando se incorporen, los horarios ficticios aprobados para el prototipo, sin presentarlos como comerciales. No ofrece campos de origen, destino o fecha que generen resultados.
 
 ### 3.8 Acceso del Cliente y clientes de demostración (C-1) **[C]**
 
@@ -272,6 +275,7 @@ C-1 queda resuelta. El mecanismo es un **ingreso simulado por correo electrónic
 
 - El panel del Cliente, CU-03 y CU-04 requieren **sesión activa**.
 - Para el panel y CU-03, un Visitante sin sesión es dirigido a `/ingresar`, donde se muestra el aviso de registro y el enlace a CU-02.
+- Si el ingreso o registro se inició al intentar acceder a CU-03, al completarlo se regresa a la búsqueda. Si se accedió desde el header, se abre el panel del Cliente (3.3, 3.9).
 - **Excepción de CU-04:** si un Visitante intenta reservar sin sesión, se muestra «Para reservar necesitas una cuenta», con:
   - acción principal **«Crear cuenta»**, que inicia CU-02;
   - acción secundaria **«Ya soy cliente»**, que dirige a `/ingresar`.
@@ -314,6 +318,18 @@ La interfaz muestra un aviso discreto: **«Esta es una demostración. Los datos 
 - **No** se modifican los siete casos de uso.
 - **No** se incorpora autenticación real ni credenciales reales.
 
+### 3.9 Reglas funcionales de CU-03 — Búsqueda de vuelos **[C]**
+
+- **Acceso:** CU-03 es exclusivo para Clientes registrados con sesión activa. Un Visitante no puede buscar; si intenta acceder, se dirige a `/ingresar` y recibe el aviso y enlace de registro previstos en C-1 (3.8).
+- **Retorno contextual:** si el Cliente inició el ingreso o registro al intentar abrir CU-03, al completar ese flujo regresa a la búsqueda. Si accede desde el header, entra al panel del Cliente.
+- **Trayecto:** la búsqueda es exclusivamente de ida y vuelta. El vuelo de regreso debe usar la misma conexión en sentido inverso al vuelo de ida. No se combinan rutas ni conexiones distintas.
+- **Criterios:** el Cliente selecciona origen, destino, fecha de ida, fecha de regreso y cantidad por tipo de pasajero. Solo se ofrecen las conexiones y servicios directos aprobados en PA-2 (4.1, 4.3, 4.7); los horarios se interpretan con las zonas IANA según cada fecha (4.7.1).
+- **Fechas:** se mantiene el horizonte de los próximos 30 días y los días de operación aprobados en PA-2 (4.3). La fecha de regreso no puede ser anterior a la de ida.
+- **Pasajeros:** se admiten hasta 30 pasajeros en total por búsqueda, incluidos los infantes. Debe haber al menos un pasajero. Ambos vuelos deben tener disponibilidad suficiente para el grupo completo.
+- **Disponibilidad:** los datos son ficticios y deterministas: cada ocurrencia sin reservas de demostración comienza con 30 plazas, y las reservas de demostración descuentan las plazas correspondientes. La disponibilidad es independiente por vuelo y fecha, y se restablece al recargar la página (4.4). CU-03 solo la muestra; no retiene plazas.
+- **Resultados:** se muestran vuelos directos de ida y de regreso, con número de vuelo, trayecto, horas locales y fechas, duración, tarifa aprobada y disponibilidad por ocurrencia. Las tarifas y horarios se identifican como ficticios del prototipo (4.2, 4.7).
+- **Límite:** CU-03 termina cuando el Cliente selecciona ida y regreso y continúa a CU-04. No incluye selección de asientos, millas, creación o confirmación de reservas ni retención de plazas. CU-04 vuelve a validar la disponibilidad según C-3 (4.8.1).
+
 ---
 
 ## 4. Vuelos, horarios y tarifas (PA-2) **[C]**
@@ -353,6 +369,7 @@ No se incluye Santo Domingo – Punta Cana.
 | Salidas semanales | 20 × 3 = **60** |
 | Reutilización | Cada servicio recurrente conserva su número de vuelo en distintas fechas |
 | Horizonte de búsqueda (CU-03) | Próximos **30 días** |
+| Tipo de búsqueda (CU-03) | Ida y vuelta por la misma conexión, en sentidos inversos |
 | Generación automática | **No.** El conjunto se prepara previamente; la aplicación no genera vuelos en tiempo de ejecución |
 | Tipo de vuelo | Directo |
 | Sin vuelos en la fecha (CU-03) | Se informa y se sugieren fechas próximas con disponibilidad |
@@ -364,7 +381,40 @@ No se incluye Santo Domingo – Punta Cana.
 - Una reserva reduce la disponibilidad.
 - Una cancelación libera la plaza.
 - No se supera la capacidad máxima.
+- En CU-03 se admiten hasta **30 pasajeros por búsqueda**; tanto el vuelo de ida como el de regreso deben tener plazas suficientes para todo el grupo (3.9).
+- La disponibilidad de demostración es **ficticia y determinista**, independiente para cada vuelo y fecha:
+  - cada ocurrencia sin reservas de demostración comienza con **30 plazas disponibles**;
+  - las reservas de demostración descuentan las plazas correspondientes de la ocurrencia de cada vuelo;
+  - no se generan valores aleatorios ni se comparte disponibilidad entre fechas o vuelos;
+  - la disponibilidad se conserva en memoria durante la sesión y se restablece al recargar la página.
 - La composición de una compra de ida y vuelta se define en 4.8.
+
+#### 4.4.1 Mapa y asignación de asientos **[C]**
+
+- Distribución: **10 filas con 3 asientos por fila (2–1)**, para un total de 30 plazas.
+- Identificadores: filas del **1 al 10** y columnas **A, B y C**; asientos `1A`–`10C`.
+- Vista de referencia (A y B a un lado del pasillo, C al otro):
+
+```text
+             Frente
+          A   B   |   C
+       1  □   □   |   □
+       2  □   □   |   □
+       3  □   □   |   □
+       4  □   □   |   □
+       5  □   □   |   □
+       6  □   □   |   □
+       7  □   □   |   □
+       8  □   □   |   □
+       9  □   □   |   □
+      10  □   □   |   □
+             Pasillo
+```
+
+- Estados: **disponible** (seleccionable), **seleccionado** (elegido antes de confirmar) y **reservado** (ocupado y no seleccionable).
+- Se asigna un asiento por pasajero y por tramo, incluidos los infantes. El asiento se elige para una ocurrencia concreta de vuelo; su disponibilidad en otra fecha se evalúa por separado.
+- Antes de confirmar se validan todos los asientos de todos los componentes de la compra. Si alguno no está disponible, no se confirma ningún componente ni se retiene asiento, de acuerdo con C-3 (4.8.1).
+- No se definen clases comerciales ni tarifas adicionales por asiento.
 
 ### 4.5 Presentación de vuelos
 
@@ -381,19 +431,56 @@ Se muestra:
 - Únicos por servicio programado y dirección.
 - Se reutilizan en las distintas fechas del servicio.
 
-### 4.7 Datos que se completarán al preparar el conjunto de demostración **[R]**
+### 4.7 Conjunto de servicios programados **[C]**
 
-No se inventan en este documento:
+Los siguientes **20 servicios están aprobados como datos ficticios del prototipo**. Sus horarios, duraciones y números `CN` son propuestas académicas; **no representan horarios comerciales verificados ni servicios ofrecidos por una aerolínea real**. Se conservan sin cambios las cinco conexiones, las tarifas y los días de operación de PA-2.
 
-- Horas exactas de salida y llegada.
-- Duraciones de cada trayecto.
-- Asignación concreta de números de vuelo.
-- Zonas horarias y cálculo de cambio de fecha.
-- Distancias de cada conexión y unidad utilizada (millas o kilómetros), necesarias para la acumulación.
+Todos los horarios de la tabla son locales en cada aeropuerto. La referencia de desfases es **2026-11-08**; el día local de llegada es el mismo día de salida para los 20 servicios en esa fecha de referencia.
 
-Estos datos deben provenir de fuentes verificables y quedar registrados junto al conjunto de demostración.
+| N.º | Vuelo | Trayecto | Salida local | Llegada local | Duración ficticia | Cambio de fecha |
+|---:|---|---|---|---|---:|---|
+| 1 | CN101 | SDQ → SJU | 08:00 | 09:15 | 1 h 15 min | No |
+| 2 | CN102 | SJU → SDQ | 10:30 | 11:45 | 1 h 15 min | No |
+| 3 | CN103 | SDQ → SJU | 17:00 | 18:15 | 1 h 15 min | No |
+| 4 | CN104 | SJU → SDQ | 19:30 | 20:45 | 1 h 15 min | No |
+| 5 | CN201 | SDQ → AUA | 08:00 | 09:30 | 1 h 30 min | No |
+| 6 | CN202 | AUA → SDQ | 10:45 | 12:15 | 1 h 30 min | No |
+| 7 | CN203 | SDQ → AUA | 17:00 | 18:30 | 1 h 30 min | No |
+| 8 | CN204 | AUA → SDQ | 19:45 | 21:15 | 1 h 30 min | No |
+| 9 | CN301 | SDQ → MIA | 08:00 | 09:30 | 2 h 30 min | No |
+| 10 | CN302 | MIA → SDQ | 11:00 | 14:30 | 2 h 30 min | No |
+| 11 | CN303 | SDQ → MIA | 17:00 | 18:30 | 2 h 30 min | No |
+| 12 | CN304 | MIA → SDQ | 20:00 | 23:30 | 2 h 30 min | No |
+| 13 | CN401 | SDQ → BOG | 08:00 | 09:40 | 2 h 40 min | No |
+| 14 | CN402 | BOG → SDQ | 11:00 | 14:40 | 2 h 40 min | No |
+| 15 | CN403 | SDQ → BOG | 17:00 | 18:40 | 2 h 40 min | No |
+| 16 | CN404 | BOG → SDQ | 20:00 | 23:40 | 2 h 40 min | No |
+| 17 | CN501 | JBQ → HAV | 09:00 | 11:00 | 2 h | No |
+| 18 | CN502 | HAV → JBQ | 12:30 | 14:30 | 2 h | No |
+| 19 | CN503 | JBQ → HAV | 17:00 | 19:00 | 2 h | No |
+| 20 | CN504 | HAV → JBQ | 20:30 | 22:30 | 2 h | No |
 
-La landing muestra únicamente los horarios publicados y verificados (3.7, decisión 7). Mientras un horario no esté definido, se indica «Horario por confirmar»; no se completa con valores inventados.
+#### 4.7.1 Zonas horarias y cálculo por fecha
+
+Se usan los identificadores de zona IANA para calcular la hora local y el desfase efectivo **en la fecha de cada vuelo**. Las abreviaturas de zona y los desfases de una fecha de referencia no se deben codificar como constantes.
+
+| Código IATA | Aeropuerto | Identificador IANA | Desfase local en 2026-11-08 |
+|---|---|---|---:|
+| SDQ | Las Américas, Santo Domingo | `America/Santo_Domingo` | UTC−04:00 |
+| JBQ | La Isabela, Santo Domingo | `America/Santo_Domingo` | UTC−04:00 |
+| SJU | San Juan | `America/Puerto_Rico` | UTC−04:00 |
+| AUA | Reina Beatrix, Aruba | `America/Aruba` | UTC−04:00 |
+| MIA | Miami | `America/New_York` | UTC−05:00 |
+| BOG | El Dorado, Bogotá | `America/Bogota` | UTC−05:00 |
+| HAV | José Martí, La Habana | `America/Havana` | UTC−04:00 |
+
+Los valores de `HAV` se expresan como hora local UTC−04:00 para la fecha de referencia; se evita la abreviatura ambigua «CST». En otras fechas, se recalculan desfases, horas locales y cambio de fecha usando las reglas IANA vigentes; no se asume que el desfase de referencia permanezca constante. La fuente de zonas y reglas es [IANA Time Zone Database (tzdb)](https://www.iana.org/time-zones), release 2026f, publicada el 2026-10-27.
+
+#### 4.7.2 Datos que siguen pendientes **[R]**
+
+- Distancias de cada conexión y unidad que se utilizará (millas o kilómetros), necesarias para determinar la acumulación de millas.
+
+Las horas y duraciones anteriores son **ficticias y aprobadas para el prototipo**, no verificadas comercialmente. Si se muestran en la interfaz, deben entenderse como información de demostración.
 
 ### 4.8 Representación de reservas de ida y vuelta (C-3) **[C]**
 
@@ -410,7 +497,7 @@ La landing muestra únicamente los horarios publicados y verificados (3.7, decis
 7. **Una confirmación por compra.** La confirmación de CU-05 se asocia a la reserva principal y representa la compra completa.
 8. **Cancelación completa.** Se cancela la compra entera, sin cancelaciones parciales en el prototipo. PA-5 se aplica tomando como referencia el primer vuelo.
 9. **Reembolso neto.** Se devuelve el **80 % del importe neto pagado** después del descuento por millas. Las millas no se reponen.
-10. **Pendientes.** No se resuelven aquí la cancelación parcial, el reembolso por componente, la numeración/mapa/asignación de asientos, los datos operativos de vuelos/horarios/duraciones/distancias ni la combinación de conexiones diferentes entre ida y vuelta.
+10. **Pendientes.** No se resuelven aquí la cancelación parcial y el reembolso por componente ni las distancias de las conexiones. CU-03 no permite combinar conexiones diferentes entre ida y vuelta (3.9). El mapa de asientos queda definido en 4.4 y los servicios ficticios en 4.7.
 
 #### 4.8.2 Composición y precio
 
@@ -507,11 +594,10 @@ Notas:
 #### 4.8.9 Pendientes que no resuelve C-3
 
 1. Política de cancelación parcial y reembolso por componente.
-2. Numeración, mapa y asignación de asientos.
-3. Datos operativos de vuelos, horarios, duraciones y distancias (4.7).
-4. Posibilidad de combinar conexiones diferentes entre ida y vuelta.
+2. Distancias de las conexiones y unidad de medida, necesarias para la acumulación de millas (4.7.2).
+3. Posibilidad de combinar conexiones diferentes entre ida y vuelta.
 
-Estos pendientes no bloquean la landing ni el cierre funcional de C-3; deben resolverse antes de las pantallas o del conjunto de demostración que los requiera.
+El mapa de asientos está aprobado en 4.4 y los servicios programados ficticios en 4.7. Los pendientes restantes deben resolverse antes de las pantallas o del conjunto de demostración que los requiera.
 
 ---
 
@@ -731,7 +817,7 @@ React, Vite y TypeScript son la base aprobada. Esa aprobación **no autoriza ins
 | 13 | Clientes nuevos sin millas; datos demo independientes | Conforme (3.8, C-1.6) |
 | 14 | Conversión de millas aprobada, con mínimo, tope y elegibilidad | Conforme (5.2, C-2) |
 | 15 | C-3 resuelta sin modificar el modelo académico | Conforme (4.8) |
-| 16 | Pendientes operativos identificados y no presentados como resueltos | Conforme (4.8.9, 9.4) |
+| 16 | Servicios ficticios y mapa de asientos aprobados; pendientes restantes no se presentan como resueltos | Conforme (4.4, 4.7, 4.8.9, 9.4) |
 
 ### 9.2 Resoluciones documentadas
 
@@ -741,7 +827,7 @@ C-1, C-2 y C-3 quedaron resueltas y aprobadas. No quedan tensiones funcionales a
 
 **C-2 — Conversión de millas a descuento para saldos arbitrarios.** **RESUELTO - APROBADO POR OLIVER.** La regla queda definida en 5.2: 10 millas = RD$1 (1 milla = RD$0.10); `descuento = millas utilizadas / 10`; mínimo e incrementos de 1,000 millas; tope en el importe pendiente; solo clientes corporativos; deducción al confirmar y sin reposición al cancelar. La equivalencia es una **convención del prototipo** derivada del ejemplo 10,000 → RD$1,000, no una regla de aerolínea. El registro usa `millasUtilizadas` y `descuentoAplicado` en RD$. La base del cálculo es el importe total de la compra, definido en 4.8.
 
-**C-3 — Representación del viaje: ida y vuelta y cantidad de pasajeros.** **RESUELTO - APROBADO POR OLIVER.** Se adopta C′: reserva principal académica + reservaciones componentes + agrupación interna. Se crea una reservación académica por pasajero y por trayecto; el `codigoReservacion` de la principal es el identificador visible y los códigos componentes son internos; la etiqueta y categoría de cada pasajero se guardan en la capa interna; la confirmación es todo o nada; `millasUtilizadas` y `descuentoAplicado` se registran solo en la principal y se aplican al total de la compra; se envía una sola confirmación por compra; la cancelación es completa, sin parciales, con PA-5 referida al primer vuelo; se reembolsa el 80 % del neto pagado y las millas no se reponen. El modelo académico no se modifica. El detalle y los ejemplos están en 4.8. Quedan pendientes la cancelación parcial, la numeración/mapa/asignación de asientos, los datos operativos y la combinación de conexiones (9.4).
+**C-3 — Representación del viaje: ida y vuelta y cantidad de pasajeros.** **RESUELTO - APROBADO POR OLIVER.** Se adopta C′: reserva principal académica + reservaciones componentes + agrupación interna. Se crea una reservación académica por pasajero y por trayecto; el `codigoReservacion` de la principal es el identificador visible y los códigos componentes son internos; la etiqueta y categoría de cada pasajero se guardan en la capa interna; la confirmación es todo o nada; `millasUtilizadas` y `descuentoAplicado` se registran solo en la principal y se aplican al total de la compra; se envía una sola confirmación por compra; la cancelación es completa, sin parciales, con PA-5 referida al primer vuelo; se reembolsa el 80 % del neto pagado y las millas no se reponen. El modelo académico no se modifica. El detalle y los ejemplos están en 4.8. Quedan pendientes la cancelación parcial y las distancias (9.4). CU-03 no permite combinar conexiones diferentes (3.9); el mapa de asientos está aprobado en 4.4 y los datos ficticios de vuelos en 4.7.
 
 ### 9.3 Aclaraciones que no son contradicciones
 
@@ -757,11 +843,9 @@ C-1, C-2 y C-3 quedaron resueltas y aprobadas. No quedan tensiones funcionales a
 ### 9.4 Pendientes operativos que no resuelve C-3
 
 1. Política de cancelación parcial y reembolso por componente.
-2. Numeración, mapa y asignación de asientos.
-3. Datos operativos de vuelos, horarios, duraciones y distancias (4.7).
-4. Posibilidad de combinar conexiones diferentes entre ida y vuelta.
+2. Distancias de cada conexión y unidad de medida, necesarias para determinar la acumulación de millas (4.7.2).
 
-Estos pendientes no reabren C-3 ni bloquean la landing; deben resolverse antes de las pantallas o del conjunto de demostración que los requiera. No se inventan reglas para ellos.
+CU-03 utiliza la misma conexión en ambos sentidos y no admite combinaciones (3.9). El mapa de asientos está aprobado en 4.4 y los servicios programados ficticios en 4.7. Los pendientes anteriores no reabren C-3 ni bloquean la landing; deben resolverse antes de las pantallas que los requieran. No se inventan reglas para ellos.
 
 ---
 
@@ -799,7 +883,7 @@ Tesla se usa como referencia, no como plantilla. No se copian assets, textos, lo
 **Alcance:** landing pública (`/`), navegación y presentación del catálogo público **como CU-01**.
 
 - La landing no incorpora búsqueda por criterios, filtros ni disponibilidad numérica (3.7).
-- El catálogo muestra conexiones, tarifas, días de operación y horarios verificados.
+- El catálogo muestra conexiones, tarifas y días de operación; los horarios, si se incorporan, son los datos ficticios aprobados en 4.7 y no se presentan como comerciales.
 - La llamada a la acción es **«Ver vuelos»**, no «Consultar».
 - El Visitante puede iniciar CU-02; el Cliente puede ingresar por `/ingresar` (3.8).
 - El enlace «Ingresar» apunta a `/ingresar`; esa pantalla debe existir antes de publicar el enlace, para no dejar una ruta muerta.
@@ -817,7 +901,7 @@ Las decisiones funcionales de 3.7, 3.8, 4.8 y 5.2 están cerradas y no forman pa
 ## 11. Próximos pasos
 
 1. Revisar visualmente la implementación existente de la landing y registrar solo los cambios aprobados.
-2. Completar los pendientes operativos: horarios, duraciones, distancias, numeración/mapa de asientos y posible combinación de conexiones (4.7, 9.4), antes de las pantallas que los requieran.
+2. Completar los pendientes operativos restantes: cancelación parcial y distancias (4.8.9, 9.4), antes de las pantallas que los requieran. CU-03 no admite combinaciones de conexiones (3.9).
 3. Elaborar un plan de alcance para cualquier funcionalidad futura, respetando las decisiones funcionales cerradas y las exclusiones aprobadas.
 
 **Regla de detención:** no se altera el diseño visual aprobado ni se amplía la funcionalidad sin aprobación explícita.
@@ -837,7 +921,10 @@ Las decisiones funcionales de 3.7, 3.8, 4.8 y 5.2 están cerradas y no forman pa
 | 06/11/2026 | **Versión 2.2 —** C-2 resuelta: conversión 10 millas = RD$1, mínimo e incrementos de 1,000, tope en el importe pendiente, elegibilidad corporativa, deducción al confirmar y registro en `millasUtilizadas`/`descuentoAplicado` (5.2); C-3 permanece abierta | Aprobación explícita de Oliver |
 | 06/11/2026 | **Versión 2.3 —** C-3 resuelta: reserva principal + componentes, una reservación por pasajero y trayecto, confirmación todo o nada, millas en la principal, una confirmación por compra y cancelación completa con 80 % del neto (4.8); pendientes operativos identificados (9.4) | Aprobación explícita de Oliver |
 | 08/11/2026 | **Versión 2.4 —** Estado actualizado: existe una implementación frontend prototipo; se precisan el alcance implementado, las funcionalidades pendientes y la revisión visual | Implementación y estado del repositorio |
+| 08/11/2026 | **Versión 2.5 —** Aprobados los 20 servicios programados con datos ficticios, zonas IANA y cálculo local por fecha; aprobado el mapa 10 × 3 y la validación todo o nada de asientos. Se conservan como pendientes las distancias, la cancelación parcial y la combinación de conexiones | Aprobación explícita de Oliver |
+| 08/11/2026 | **Versión 2.6 —** Aprobadas las reglas de CU-03: acceso de Cliente con retorno contextual tras ingreso/registro, ida y vuelta por la misma conexión, máximo 30 pasajeros y disponibilidad ficticia determinista restablecida al recargar. Se define el límite antes de CU-04, sin implementar reservas ni otros componentes | Aprobación explícita de Oliver |
+| 08/11/2026 | **Versión 2.7 —** CU-03 implementado como prototipo: rutas `/panel`, `/buscar` y `/reservar` (stub), protección de sesión con retorno contextual, 20 servicios ficticios con cálculo IANA por fecha (incluido el override UTC−4 de `America/Havana` por la suspensión cubana hasta 2027), reservas demo de ocupación y corrección del botón «Mi panel» duplicado. Sin reservas reales ni CU-04 | Implementación autorizada por Oliver |
 
 ---
 
-**Fin del documento.** Planificación funcional cerrada. C-1, C-2 y C-3 resueltas; pendientes operativos identificados (4.8, 9.4). Existe una aplicación frontend prototipo con landing pública y flujo simulado de ingreso/registro. La revisión visual continúa; reserva y paneles de Cliente y Agente siguen pendientes.
+**Fin del documento.** Planificación funcional cerrada. C-1, C-2 y C-3 resueltas; las reglas de CU-03 aprobadas e implementadas como prototipo (búsqueda `/buscar`, panel mínimo `/panel`, stub `/reservar`); los 20 servicios ficticios y el mapa 10 × 3 están aprobados. Permanecen pendientes la cancelación parcial y las distancias (4.8.9, 9.4), CU-04 y el panel del Agente.

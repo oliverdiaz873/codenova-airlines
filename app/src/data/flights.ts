@@ -3,7 +3,8 @@
  * Source: PLAN_CODENOVA.md — PA-2, section 4.1
  *
  * Connections, fares, and days of operation are approved.
- * Schedules are NOT yet defined (4.7) — shown as "Horario por confirmar".
+ * The 20 scheduled services are approved in PLAN_CODENOVA.md 4.7 and live in
+ * scheduledServices.ts; `schedule` here stays null for the public catalog.
  */
 
 export interface FlightConnection {
