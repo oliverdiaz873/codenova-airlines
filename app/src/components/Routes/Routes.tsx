@@ -1,25 +1,28 @@
 import { FLIGHT_CONNECTIONS, DAYS_OF_OPERATION, formatCurrency } from '@/data/flights';
+import { SCHEDULED_SERVICES } from '@/data/scheduledServices';
 import './Routes.css';
 
-const proposedConnection = {
-  id: 'mad-sjo-proposal',
-  origin: { city: 'Madrid', iata: 'MAD' },
-  destination: { city: 'San José', iata: 'SJO' },
-  farePerPassenger: 12000,
-  scheduleLabel: 'Todos los días',
-  image: '/hero-airplane.png',
-  badge: 'Propuesta ficticia',
-};
+/**
+ * Local departure times from the connection's origin airport, taken from
+ * the approved scheduled services (PLAN 4.7). Filtering by origin.iata keeps
+ * only outbound departures; return-direction times are excluded.
+ */
+function departuresLabel(routeId: string, originIata: string): string {
+  const times = SCHEDULED_SERVICES.filter(
+    (service) =>
+      service.routeId === routeId && service.origin.iata === originIata,
+  )
+    .map((service) => service.departureLocal)
+    .sort();
+  return times.length > 0 ? `Salidas ${times.join(' y ')}` : 'Horario por confirmar';
+}
 
 export function Routes() {
-  const connections = [
-    ...FLIGHT_CONNECTIONS.map((connection) => ({
-      ...connection,
-      scheduleLabel: connection.schedule ?? 'Horario por confirmar',
-      badge: 'Vuelo directo',
-    })),
-    proposedConnection,
-  ];
+  const connections = FLIGHT_CONNECTIONS.map((connection) => ({
+    ...connection,
+    scheduleLabel: departuresLabel(connection.id, connection.origin.iata),
+    badge: 'Vuelo directo',
+  }));
 
   return (
     <section className="routes" id="routes">
@@ -28,7 +31,7 @@ export function Routes() {
           <span className="routes__label">Nuestras rutas</span>
           <h2 className="heading-lg routes__title">Conexiones directas</h2>
           <p className="text-lg routes__subtitle">
-            Cinco conexiones aprobadas y una propuesta ficticia. Tarifas con impuestos incluidos.
+            Cinco conexiones aprobadas. Tarifas con impuestos incluidos.
           </p>
         </div>
 
@@ -48,7 +51,7 @@ export function Routes() {
                   alt={`Vista de ${conn.destination.city}`}
                   loading="lazy"
                 />
-                <span className={`route-card__badge${conn.id === proposedConnection.id ? ' route-card__badge--proposal' : ''}`}>
+                <span className="route-card__badge">
                   {conn.badge}
                 </span>
               </div>

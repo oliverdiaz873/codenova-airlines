@@ -11,6 +11,7 @@ import { Navbar } from '@/components/Navbar/Navbar';
 import { Hero } from '@/components/Hero/Hero';
 import { Destinations } from '@/components/Destinations/Destinations';
 import { Routes as FlightRoutes } from '@/components/Routes/Routes';
+import { ExperienceSection } from '@/components/ExperienceSection/ExperienceSection';
 import { Footer } from '@/components/Footer/Footer';
 import { LoginPage } from '@/components/LoginPage/LoginPage';
 import { RequireCustomer } from '@/components/RequireCustomer';
@@ -64,6 +65,7 @@ export default function App() {
                   <Hero />
                   <Destinations />
                   <FlightRoutes />
+                  <ExperienceSection />
                 </main>
                 <Footer />
               </>
