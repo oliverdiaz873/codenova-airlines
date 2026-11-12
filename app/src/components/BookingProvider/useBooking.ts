@@ -15,6 +15,7 @@ export interface BookingContextValue {
   register: (customer: DemoCustomer) => void;
   logout: () => void;
   confirmPurchase: (input: ConfirmPurchaseInput) => ConfirmPurchaseResult;
+  sendConfirmationEmail: (code: string) => void;
   cancelPurchase: (code: string) => CancelPurchaseResult;
   syncAccrual: () => void;
 }

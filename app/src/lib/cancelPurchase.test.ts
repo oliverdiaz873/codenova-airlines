@@ -181,6 +181,7 @@ describe('applyPurchaseCancellation', () => {
       discountApplied: 1_000,
       netTotal: 14_800,
       pendingMiles: 500,
+      confirmationEmailStatus: 'SENT',
     });
     const result = applyPurchaseCancellation(
       [purchase],
@@ -195,6 +196,7 @@ describe('applyPurchaseCancellation', () => {
     expect(cancelled.discountApplied).toBe(1_000);
     expect(cancelled.netTotal).toBe(14_800);
     expect(cancelled.pendingMiles).toBe(500);
+    expect(cancelled.confirmationEmailStatus).toBe('SENT');
     expect(cancelled.components).toEqual(purchase.components);
     expect(cancelled.customerEmail).toBe(OWNER);
   });

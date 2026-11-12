@@ -32,6 +32,12 @@ export const PASSENGER_KIND_LABELS: Record<PassengerKind, string> = {
 
 export type PurchaseStatus = 'confirmada' | 'cancelada';
 
+/**
+ * CU-05 simulated confirmation-email state. Independent of the purchase
+ * status: FAILED never means the reservation failed (academic alt. 1).
+ */
+export type ConfirmationEmailStatus = 'PENDING' | 'SENT' | 'FAILED';
+
 export interface BookingComponent {
   /** 0-based position of the passenger inside the purchase. */
   passengerIndex: number;
@@ -60,6 +66,8 @@ export interface Purchase {
   discountApplied: number;
   netTotal: number;
   status: PurchaseStatus;
+  /** CU-05: simulated email state; absent until the send process runs. */
+  confirmationEmailStatus?: ConfirmationEmailStatus;
   /** CU-06: instant (ms) of cancellation; set only when status is 'cancelada'. */
   cancelledAtMs?: number;
   /** CU-06: simulated refund registered at cancellation (80 % of netTotal). */

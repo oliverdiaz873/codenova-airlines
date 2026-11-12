@@ -199,6 +199,7 @@ export function LoginPage({
                 <summary>Cuentas de demostración</summary>
                 <p>minorista@codenova.demo</p>
                 <p>corporativo@codenova.demo</p>
+                <p>correo-fallido@codenova.demo</p>
               </details>
 
               <p className="login-form__notice">

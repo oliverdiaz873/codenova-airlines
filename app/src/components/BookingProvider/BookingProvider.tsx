@@ -8,6 +8,12 @@ import {
 } from '@/lib/confirmPurchase';
 import type { Purchase } from '@/lib/booking';
 import {
+  EMAIL_SEND_DELAY_MS,
+  finishEmailSend,
+  shouldForceEmailFailure,
+  startEmailSend,
+} from '@/lib/confirmationEmail';
+import {
   applyPurchaseCancellation,
   type CancelPurchaseResult,
 } from '@/lib/cancelPurchase';
@@ -104,6 +110,51 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   };
 
   /**
+   * CU-05: simulated confirmation email. The PENDING transition commits
+   * synchronously so repeated calls (StrictMode, remounts, repeated
+   * navigation) see an already-processed purchase and no-op; the delayed
+   * completion also goes through the store, so the result is recorded even
+   * if the view unmounted meanwhile. A FAILED result never touches the
+   * purchase — it only sets confirmationEmailStatus.
+   */
+  const sendConfirmationEmail = useCallback(
+    (code: string) => {
+      const purchase = storeRef.current.purchases.find(
+        (candidate) => candidate.code === code,
+      );
+      if (!purchase || purchase.status !== 'confirmada') return;
+      const pending = startEmailSend(purchase);
+      if (pending === purchase) return;
+      commit({
+        ...storeRef.current,
+        purchases: storeRef.current.purchases.map((candidate) =>
+          candidate.code === code ? pending : candidate,
+        ),
+      });
+      window.setTimeout(() => {
+        const current = storeRef.current.purchases.find(
+          (candidate) => candidate.code === code,
+        );
+        if (!current) return;
+        // The purchase owner decides the simulated result: the demo
+        // failure account forces FAILED; a missing owner keeps SENT.
+        const finished = finishEmailSend(
+          current,
+          shouldForceEmailFailure(current, storeRef.current.customers),
+        );
+        if (finished === current) return;
+        commit({
+          ...storeRef.current,
+          purchases: storeRef.current.purchases.map((candidate) =>
+            candidate.code === code ? finished : candidate,
+          ),
+        });
+      }, EMAIL_SEND_DELAY_MS);
+    },
+    [commit],
+  );
+
+  /**
    * CU-06: atomic purchase cancellation. The pure transition validates
    * ownership, status and the 168-hour deadline against the freshest
    * state; only an ok result commits — a failure changes nothing, so the
@@ -140,6 +191,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     confirmPurchase,
+    sendConfirmationEmail,
     cancelPurchase,
     syncAccrual,
   };
