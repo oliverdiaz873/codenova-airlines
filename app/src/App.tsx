@@ -18,6 +18,8 @@ import { ClientPanel } from '@/components/ClientPanel/ClientPanel';
 import { SearchPage } from '@/components/SearchPage/SearchPage';
 import { BookingPage } from '@/components/BookingPage/BookingPage';
 import { BookingConfirmation } from '@/components/BookingConfirmation/BookingConfirmation';
+import { ReservationDetail } from '@/components/ReservationDetail/ReservationDetail';
+import { ReservationList } from '@/components/ReservationList/ReservationList';
 import { BookingProvider } from '@/components/BookingProvider/BookingProvider';
 import { useBooking } from '@/components/BookingProvider/useBooking';
 import type { DemoCustomer } from '@/data/customers';
@@ -67,6 +69,14 @@ function AppRoutes() {
           />
           <Route element={<RequireCustomer customer={activeCustomer} />}>
             <Route path="/panel" element={<ClientPanel onLogout={logout} />} />
+            <Route
+              path="/panel/reservas"
+              element={<ReservationList />}
+            />
+            <Route
+              path="/panel/reservas/:code"
+              element={<ReservationDetail />}
+            />
             <Route path="/buscar" element={<SearchPage />} />
             <Route
               path="/confirmacion"

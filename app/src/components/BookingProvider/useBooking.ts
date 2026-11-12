@@ -5,6 +5,7 @@ import type {
   ConfirmPurchaseInput,
   ConfirmPurchaseResult,
 } from '@/lib/confirmPurchase';
+import type { CancelPurchaseResult } from '@/lib/cancelPurchase';
 
 export interface BookingContextValue {
   customers: DemoCustomer[];
@@ -14,6 +15,7 @@ export interface BookingContextValue {
   register: (customer: DemoCustomer) => void;
   logout: () => void;
   confirmPurchase: (input: ConfirmPurchaseInput) => ConfirmPurchaseResult;
+  cancelPurchase: (code: string) => CancelPurchaseResult;
   syncAccrual: () => void;
 }
 

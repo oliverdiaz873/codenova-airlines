@@ -60,6 +60,10 @@ export interface Purchase {
   discountApplied: number;
   netTotal: number;
   status: PurchaseStatus;
+  /** CU-06: instant (ms) of cancellation; set only when status is 'cancelada'. */
+  cancelledAtMs?: number;
+  /** CU-06: simulated refund registered at cancellation (80 % of netTotal). */
+  refundAmount?: number;
   /** Miles pending accrual after trip completion (corporate only). */
   pendingMiles: number;
   /** Whether the pending miles were already credited to the account. */

@@ -7,6 +7,10 @@ import {
   type ConfirmPurchaseResult,
 } from '@/lib/confirmPurchase';
 import type { Purchase } from '@/lib/booking';
+import {
+  applyPurchaseCancellation,
+  type CancelPurchaseResult,
+} from '@/lib/cancelPurchase';
 import { BookingContext, type BookingContextValue } from './useBooking';
 
 interface BookingState {
@@ -99,6 +103,31 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     return result;
   };
 
+  /**
+   * CU-06: atomic purchase cancellation. The pure transition validates
+   * ownership, status and the 168-hour deadline against the freshest
+   * state; only an ok result commits — a failure changes nothing, so the
+   * purchase and its seats stay untouched. Seats are freed implicitly
+   * because occupancy derives from confirmed purchases only.
+   */
+  const cancelPurchase = useCallback(
+    (code: string): CancelPurchaseResult => {
+      const result = applyPurchaseCancellation(
+        storeRef.current.purchases,
+        storeRef.current.activeEmail,
+        code,
+        Date.now(),
+      );
+      if (!result.ok) return result;
+      commit({
+        ...storeRef.current,
+        purchases: result.purchases,
+      });
+      return result;
+    },
+    [commit],
+  );
+
   const activeCustomer =
     state.customers.find((customer) => customer.email === state.activeEmail) ??
     null;
@@ -111,6 +140,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     confirmPurchase,
+    cancelPurchase,
     syncAccrual,
   };
 

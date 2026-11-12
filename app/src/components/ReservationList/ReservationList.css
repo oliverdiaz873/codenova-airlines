@@ -1,0 +1,118 @@
+.reservation-list {
+  padding: 3rem 0 4rem;
+}
+
+.reservation-list__header {
+  margin-bottom: 1.5rem;
+}
+
+.reservation-list__eyebrow {
+  display: block;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #667;
+  margin-bottom: 0.35rem;
+}
+
+.reservation-list__title {
+  font-size: 1.8rem;
+  margin: 0;
+}
+
+.reservation-list__card {
+  background: #fff;
+  border: 1px solid #dbe2ea;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+
+.reservation-list__empty {
+  margin: 0;
+  color: #41546a;
+}
+
+.reservation-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.reservation-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+  background: #fff;
+}
+
+.reservation-list__item-info {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.reservation-list__item-route {
+  font-weight: 600;
+}
+
+.reservation-list__item-meta {
+  font-size: 0.85rem;
+  color: #667;
+}
+
+.reservation-list__item-side {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.reservation-list__item-code {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.reservation-list__item-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+}
+
+.reservation-list__item-status--confirmada {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.reservation-list__item-status--cancelada {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.reservation-list__item-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 1rem;
+  border: 1.5px solid var(--cn-navy, #102a43);
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--cn-navy, #102a43);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.reservation-list__item-link:hover {
+  background: var(--cn-navy, #102a43);
+  color: #fff;
+}
+
+.reservation-list__back {
+  margin-top: 1.25rem;
+}

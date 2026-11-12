@@ -51,6 +51,12 @@ export function ClientPanel({ onLogout }: ClientPanelProps) {
           <Link to="/buscar" className="btn btn-primary client-panel__search">
             Buscar vuelos
           </Link>
+          <Link
+            to="/panel/reservas"
+            className="btn btn-primary client-panel__search"
+          >
+            Mis reservaciones
+          </Link>
           <button
             type="button"
             className="client-panel__logout"
