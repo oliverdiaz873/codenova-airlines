@@ -3,10 +3,10 @@
 **Proyecto:** CodeNova Airlines — Prototipo frontend de reserva de vuelos
 **Asignatura:** INF-3290
 **Tipo de documento:** Plan funcional y estado del proyecto (documento único)
-**Versión:** 2.7 — CU-03 implementado como prototipo
+**Versión:** 2.11 — Estado de CU-04 y composición de la landing
 **Fecha de cierre:** 2026-11-06
-**Última actualización:** 2026-11-08
-**Estado:** Planificación funcional **CERRADA**. C-1, C-2 y C-3 resueltas; las reglas de búsqueda CU-03 están aprobadas (3.9) y **existe un prototipo de CU-03**: rutas `/panel`, `/buscar` y `/reservar` (stub provisional), protección de sesión, retorno contextual tras ingreso/registro y disponibilidad ficticia determinista. Los 20 servicios programados ficticios y el mapa de 30 asientos están aprobados (4.4, 4.7). CU-04, las reservas reales y el panel del Agente no están implementados. Permanecen pendientes la cancelación parcial y las distancias (4.8, 9.4).
+**Última actualización:** 2026-11-12
+**Estado:** Planificación funcional **CERRADA**. C-1, C-2 y C-3 resueltas; las reglas de CU-03 y CU-04 están aprobadas (3.9, 4.4, 4.7, 5.2) y **ambas tienen prototipo implementado y publicado**: rutas `/panel`, `/buscar`, `/reservar` —con aviso de cuenta para Visitantes (C-1.5)— y `/confirmacion`, protección de sesión, retorno contextual, disponibilidad ficticia determinista, mapa de 30 asientos, millas corporativas y confirmación atómica de la compra. Permanecen pendientes CU-05 (correo de confirmación simulado), CU-06 (cancelación), el panel del Agente, la cancelación parcial y la combinación de conexiones (4.8, 9.4).
 
 ---
 
@@ -38,13 +38,14 @@
 | CU-03 — Búsqueda de vuelos | **[C]** Reglas de acceso, trayecto, pasajeros, disponibilidad y límite definidas (3.9) |
 | Arquitectura feature-based | **[E]** Vigente; estructura interna **[R]** |
 | Stack React + Vite + TypeScript | **[E]** Aprobado; no autoriza inicialización |
-| Diseño visual | Landing implementada como prototipo; su revisión visual continúa |
-| Implementación | Frontend prototipo: landing pública, flujo `/ingresar`, panel mínimo `/panel`, CU-03 en `/buscar` y stub `/reservar` |
-| Funcionalidad pendiente | CU-04 (reserva real), panel del Agente, y otros alcances excluidos |
-| Datos de vuelos y mapa | 20 servicios ficticios y mapa 10 × 3 aprobados (4.4, 4.7) |
-| Pendientes operativos | Cancelación parcial y distancias (4.8, 9.4) |
+| Diseño visual | Landing implementada como prototipo; la sección ExperienceSection quedó aprobada en revisión visual (10.5) |
+| Implementación | Frontend prototipo publicado: landing pública (Hero, Destinations, Routes, ExperienceSection), flujo `/ingresar`, panel `/panel`, CU-03 en `/buscar`, CU-04 en `/reservar` con aviso de cuenta y `/confirmacion` |
+| Funcionalidad pendiente | CU-05 (correo de confirmación simulado), CU-06 (cancelación), panel del Agente, y otros alcances excluidos |
+| Datos de vuelos y mapa | 20 servicios ficticios y mapa 10 × 3 aprobados e implementados (4.4, 4.7) |
+| Millas CU-04 | Reglas cerradas e implementadas: acumulación, canje, titularidad corporativa y confirmación atómica (5.2) |
+| Pendientes operativos | Cancelación parcial y combinación de conexiones (4.8, 9.4) |
 
-**Próxima etapa:** revisión visual de la implementación existente y definición explícita de cualquier cambio adicional.
+**Próxima etapa:** continuar la revisión visual de la landing registrando solo los cambios aprobados. CU-05, CU-06 y el panel del Agente permanecen pendientes; su planificación y desarrollo requieren autorización expresa.
 
 ---
 
@@ -156,7 +157,7 @@ Corporativo y minorista **no son actores**: son valores de clasificación del Cl
 | CU-06 Cancelar reservación | No | Sí | No |
 | CU-07 Actualizar información de vuelo | No | No | Sí |
 
-CU-01 es la única función de la landing pública. CU-03 y CU-04 se ejecutan en el panel del Cliente (3.7).
+CU-01 es la única función de la landing pública. CU-03 se ejecuta en `/buscar` y CU-04 en `/reservar`, ambos para Cliente con sesión activa; un Visitante que intenta reservar recibe el aviso de cuenta de C-1.5 (3.7, 3.8).
 
 ### 3.3 Modelo de navegación
 
@@ -220,7 +221,7 @@ CU-01 es la única función de la landing pública. CU-03 y CU-04 se ejecutan en
 |---|---|---|---|
 | **CU-01** Consultar información de vuelo | Visitante, Cliente y Agente | Consulta pública de información de vuelos | Landing `/` |
 | **CU-03** Buscar vuelos | Cliente con sesión activa | Búsqueda de ida y vuelta por origen, destino y fechas, con pasajeros | Panel del Cliente |
-| **CU-04** Reservar vuelo | Cliente registrado | Reserva con número de vuelo y asiento | Panel del Cliente |
+| **CU-04** Reservar vuelo | Cliente registrado | Reserva con número de vuelo y asiento | `/reservar` — ruta pública con aviso de cuenta para Visitantes (C-1.5) |
 
 La landing ejecuta **únicamente CU-01**. No busca, no filtra por criterios y no reserva.
 
@@ -476,9 +477,17 @@ Se usan los identificadores de zona IANA para calcular la hora local y el desfas
 
 Los valores de `HAV` se expresan como hora local UTC−04:00 para la fecha de referencia; se evita la abreviatura ambigua «CST». En otras fechas, se recalculan desfases, horas locales y cambio de fecha usando las reglas IANA vigentes; no se asume que el desfase de referencia permanezca constante. La fuente de zonas y reglas es [IANA Time Zone Database (tzdb)](https://www.iana.org/time-zones), release 2026f, publicada el 2026-10-27.
 
-#### 4.7.2 Datos que siguen pendientes **[R]**
+#### 4.7.2 Distancias de las conexiones **[C]**
 
-- Distancias de cada conexión y unidad que se utilizará (millas o kilómetros), necesarias para determinar la acumulación de millas.
+Las distancias por trayecto quedaron aprobadas como **datos ficticios del prototipo** (decisión D-2, 09/11/2026), expresadas en **millas**; la ida y la vuelta utilizan la misma distancia. Son necesarias para la acumulación de millas (5.2).
+
+| Conexión | Millas por trayecto |
+|---|---:|
+| SDQ – SJU | 250 |
+| SDQ – AUA | 450 |
+| SDQ – MIA | 850 |
+| SDQ – BOG | 1,000 |
+| JBQ – HAV | 850 |
 
 Las horas y duraciones anteriores son **ficticias y aprobadas para el prototipo**, no verificadas comercialmente. Si se muestran en la interfaz, deben entenderse como información de demostración.
 
@@ -496,8 +505,8 @@ Las horas y duraciones anteriores son **ficticias y aprobadas para el prototipo*
 6. **Millas en la principal.** `millasUtilizadas` y `descuentoAplicado` se registran exclusivamente en la reserva principal y se aplican al importe total de la compra.
 7. **Una confirmación por compra.** La confirmación de CU-05 se asocia a la reserva principal y representa la compra completa.
 8. **Cancelación completa.** Se cancela la compra entera, sin cancelaciones parciales en el prototipo. PA-5 se aplica tomando como referencia el primer vuelo.
-9. **Reembolso neto.** Se devuelve el **80 % del importe neto pagado** después del descuento por millas. Las millas no se reponen.
-10. **Pendientes.** No se resuelven aquí la cancelación parcial y el reembolso por componente ni las distancias de las conexiones. CU-03 no permite combinar conexiones diferentes entre ida y vuelta (3.9). El mapa de asientos queda definido en 4.4 y los servicios ficticios en 4.7.
+9. **Reembolso neto.** Se devuelve el **80 % del importe neto pagado** después del descuento por millas. Las millas no se reponen ni se revierten (5.2, decisión D-5).
+10. **Pendientes.** No se resuelven aquí la cancelación parcial y el reembolso por componente. Las distancias de las conexiones quedaron aprobadas después en 4.7.2 (D-2). CU-03 no permite combinar conexiones diferentes entre ida y vuelta (3.9). El mapa de asientos queda definido en 4.4 y los servicios ficticios en 4.7.
 
 #### 4.8.2 Composición y precio
 
@@ -528,7 +537,7 @@ Las horas y duraciones anteriores son **ficticias y aprobadas para el prototipo*
 - Se mantienen 10:1, mínimo de 1,000, incrementos de 1,000, tope en el importe y total ≥ RD$0 (5.2).
 - Las millas se descuentan **solo al confirmar** la compra.
 - Si la compra falla, no se descuentan.
-- Si se cancela, **no se reponen**.
+- Si se cancela, **no se reponen** las millas canjeadas ni se **revierten** las acreditadas (5.2, decisión D-5).
 - No se reparte el descuento entre componentes.
 
 #### 4.8.5 Confirmación
@@ -543,7 +552,7 @@ Las horas y duraciones anteriores son **ficticias y aprobadas para el prototipo*
 - PA-5 se aplica con el **primer vuelo de la compra**.
 - Con siete días completos o más: **80 % del importe neto pagado**.
 - Con menos de siete días: no corresponde reembolso académico.
-- Las millas no se reponen.
+- Las millas canjeadas no se reponen y las acreditadas no se revierten (5.2, decisión D-5).
 - No se ofrece cancelación parcial en el prototipo.
 
 **Ejemplo:** compra de ida y vuelta, 1 pasajero, SDQ–SJU, 10,000 millas canjeadas.
@@ -594,10 +603,9 @@ Notas:
 #### 4.8.9 Pendientes que no resuelve C-3
 
 1. Política de cancelación parcial y reembolso por componente.
-2. Distancias de las conexiones y unidad de medida, necesarias para la acumulación de millas (4.7.2).
-3. Posibilidad de combinar conexiones diferentes entre ida y vuelta.
+2. Posibilidad de combinar conexiones diferentes entre ida y vuelta.
 
-El mapa de asientos está aprobado en 4.4 y los servicios programados ficticios en 4.7. Los pendientes restantes deben resolverse antes de las pantallas o del conjunto de demostración que los requiera.
+El mapa de asientos está aprobado en 4.4, los servicios programados ficticios en 4.7 y las distancias de las conexiones en 4.7.2. Los pendientes restantes deben resolverse antes de las pantallas o del conjunto de demostración que los requiera.
 
 ---
 
@@ -615,9 +623,12 @@ El mapa de asientos está aprobado en 4.4 y los servicios programados ficticios 
 |---|---|
 | Quién acumula y canjea | Solo clientes **corporativos** |
 | Quiénes no | Los clientes **minoristas** no acumulan ni canjean |
-| Base de acumulación | Distancia del vuelo |
+| Base de acumulación | Distancia del vuelo; distancias ficticias por trayecto aprobadas en 4.7.2 (D-2) |
 | Tasa de acumulación | **100 % de la distancia** (simplificación de diseño) |
-| Uso | Descuento **parcial** durante la compra |
+| Alcance de la acumulación | Por pasajero —adultos, niños e infantes— a la **cuenta corporativa titular** de la reserva (D-3) |
+| Momento de acreditación | Tras **completar el viaje de ida y vuelta**; acreditación perezosa por fecha según la llegada UTC del regreso (D-1) |
+| Titularidad del saldo | Pertenece a la cuenta corporativa titular; uso solo en reservas propias; sin transferencias; el descuento beneficia al grupo de la reserva (D-4) |
+| Uso | Descuento **parcial** opcional durante la compra (D-6) |
 | Equivalencia | **10 millas = RD$1** (1 milla = RD$0.10) |
 | Fórmula | `descuento = millas utilizadas / 10` |
 | Origen de la equivalencia | Derivada de 10,000 millas → RD$1,000; **convención del prototipo**, no regla de una aerolínea |
@@ -627,7 +638,7 @@ El mapa de asientos está aprobado en 4.4 y los servicios programados ficticios 
 | Total | Puede ser **RD$0**, nunca negativo |
 | Registro | `Reservacion.millasUtilizadas` y `Reservacion.descuentoAplicado` (RD$) en la reserva principal (4.8) |
 | Deducción | Las millas usadas se descuentan **solo al confirmar** la compra (4.8) |
-| Cancelación | **No se reponen** las millas |
+| Cancelación | **No se reponen** las millas canjeadas ni se **revierten** las acreditadas; PA-5 se aplica estrictamente (decisión aprobada 09/11/2026) |
 | Saldo inicial | Corporativos nuevos: 0 millas; corporativo demo: 10,000 millas |
 | Base del cálculo | El **importe total de la compra** (4.8) |
 
@@ -637,10 +648,28 @@ El mapa de asientos está aprobado en 4.4 y los servicios programados ficticios 
 2. **Mínimo e incremento.** Canje mínimo de **1,000 millas**, en incrementos de **1,000**.
 3. **Tope.** El descuento no puede superar el **importe pendiente de pago de la compra** (4.8). El total puede ser **RD$0**, pero **nunca negativo**.
 4. **Elegibilidad.** Solo los clientes **corporativos** acumulan y canjean millas. Los minoristas no. Los clientes corporativos nuevos comienzan con **0 millas**; el cliente corporativo de demostración conserva sus **10,000**.
-5. **Deducción.** Las millas se descuentan **únicamente al confirmar** la compra (4.8). **No se reponen** al cancelar.
+5. **Deducción.** Las millas se descuentan **únicamente al confirmar** la compra (4.8). Las millas canjeadas **no se reponen** al cancelar y las acreditadas **no se revierten** (decisión D-5, 09/11/2026).
 6. **Registro.** Se utilizan `Reservacion.millasUtilizadas` y `Reservacion.descuentoAplicado` en la **reserva principal** (4.8), este último expresado en **RD$**. **No se crean atributos ni clases nuevas.**
 7. **Interfaz futura.** Mostrar saldo, selector de canje, descuento y total actualizado de la compra; validar saldo, mínimo, incrementos y tope; ocultar el módulo a los clientes minoristas; advertir cuando el saldo sea menor que **1,000 millas**.
 8. **Base del cálculo.** La conversión se aplica al **importe total de la compra**, definido en 4.8 (reserva principal + componentes).
+
+**Decisión aprobada de D-5 (09/11/2026) — tratamiento de millas en cancelación:**
+
+1. Se aplica **PA-5 de forma estricta**: una vez completado el viaje y acreditadas las millas correspondientes, **su reversión no está contemplada**.
+2. Las millas **canjeadas** no se reponen (5.2) y las millas **acreditadas** no se revierten como consecuencia de una cancelación.
+3. No se introducen excepciones, funcionalidades ni políticas adicionales; las demás reglas de millas permanecen sin modificaciones.
+
+**Decisiones aprobadas para CU-04 — reglas de millas (09/11/2026).** La planeación funcional de millas de CU-04 queda **cerrada**. Se aprueban:
+
+1. **D-1 — Momento de acreditación.** Las millas se acreditan **después de completar el viaje de ida y vuelta**; no al reservar, pagar ni al completar solo el trayecto de ida. Representación en el prototipo: **acreditación perezosa por fecha** — la llegada UTC del vuelo de regreso determina la finalización del viaje. Simplificación: todos los pasajeros se consideran viajeros que completaron el viaje (el prototipo no modela no-shows). Una compra cancelada antes de la finalización del viaje no completa el viaje y, por tanto, no acredita millas.
+2. **D-2 — Distancias.** Valores ficticios aprobados por conexión, en **millas por trayecto**; ida y vuelta con la misma distancia. Tabla en 4.7.2.
+3. **D-3 — Pasajeros que generan millas.** Adultos, niños e infantes generan millas; todas se acreditan a la **cuenta corporativa titular** de la reserva.
+4. **D-4 — Titularidad corporativa.** El saldo pertenece a la cuenta corporativa titular de la reserva; solo puede utilizarse en reservas de las que ella sea titular; el descuento puede beneficiar al conjunto de pasajeros de esa reserva; **no existen transferencias entre cuentas**; el descuento se aplica al importe total de la compra conforme a las reglas de canje aprobadas.
+5. **D-6 — Canje.** El canje es **opcional** y el descuento se aplica al **importe total de la compra**, conforme a las reglas de 5.2.
+
+La decisión **D-5** (tratamiento de millas en cancelación) ya quedó registrada arriba y en la versión 2.8.
+
+**Fórmula de acumulación resultante:** `millas = distancia del trayecto (4.7.2) × 2 (ida y vuelta) × total de pasajeros`, al 100 %, acreditadas a la cuenta titular solo si es corporativa, tras la finalización del viaje.
 
 ### 5.3 Límites
 
@@ -681,7 +710,7 @@ No se construye:
 | 20 % restante | No se devuelve cuando aplica el reembolso |
 | Unidad de cancelación | **Compra completa**; sin cancelaciones parciales en el prototipo (4.8) |
 | Base del reembolso | **Importe neto pagado** después del descuento por millas (4.8) |
-| Millas | **No se reponen** (5.2) |
+| Millas | Ni las canjeadas se reponen ni las acreditadas se revierten; PA-5 estricta (5.2, decisión D-5) |
 | Transacciones bancarias | No se realizan |
 | Interfaz | Representa el cálculo y el resultado |
 
@@ -726,6 +755,12 @@ Las tarifas del prototipo no reproducen exactamente las tarifas comerciales cons
 | Acumulación solo corporativa | Decisión del equipo | Simplificación |
 | 100 % de la distancia | Decisión del equipo | Simplificación |
 | Equivalencia 10 millas = RD$1 | Derivada de 10,000 → RD$1,000 | Decisión del equipo (C-2) |
+| Acreditación tras ida y vuelta, perezosa por fecha | Decisión del equipo (D-1) | Decisión del equipo |
+| Distancias ficticias por trayecto en millas | Decisión del equipo (D-2) | Dato de demostración |
+| Todos los pasajeros generan millas a la cuenta titular | Decisión del equipo (D-3) | Decisión del equipo |
+| Titularidad exclusiva; uso en reservas propias; sin transferencias | Decisión del equipo (D-4) | Decisión del equipo |
+| Canje opcional sobre el total de la compra | CU-04 + decisión del equipo (D-6) | Académico + decisión |
+| Sin reversión de millas acreditadas ni reposición de canjeadas | Decisión del equipo (D-5) | Decisión del equipo |
 | Mínimo y pasos de 1,000 millas | Decisión del equipo | Decisión del equipo (C-2) |
 | Tope en el importe de la compra | Decisión del equipo | Decisión del equipo (C-2) |
 | 10,000 millas → RD$1,000 | Dato de demostración | Caso de la regla 10:1 |
@@ -827,13 +862,13 @@ C-1, C-2 y C-3 quedaron resueltas y aprobadas. No quedan tensiones funcionales a
 
 **C-2 — Conversión de millas a descuento para saldos arbitrarios.** **RESUELTO - APROBADO POR OLIVER.** La regla queda definida en 5.2: 10 millas = RD$1 (1 milla = RD$0.10); `descuento = millas utilizadas / 10`; mínimo e incrementos de 1,000 millas; tope en el importe pendiente; solo clientes corporativos; deducción al confirmar y sin reposición al cancelar. La equivalencia es una **convención del prototipo** derivada del ejemplo 10,000 → RD$1,000, no una regla de aerolínea. El registro usa `millasUtilizadas` y `descuentoAplicado` en RD$. La base del cálculo es el importe total de la compra, definido en 4.8.
 
-**C-3 — Representación del viaje: ida y vuelta y cantidad de pasajeros.** **RESUELTO - APROBADO POR OLIVER.** Se adopta C′: reserva principal académica + reservaciones componentes + agrupación interna. Se crea una reservación académica por pasajero y por trayecto; el `codigoReservacion` de la principal es el identificador visible y los códigos componentes son internos; la etiqueta y categoría de cada pasajero se guardan en la capa interna; la confirmación es todo o nada; `millasUtilizadas` y `descuentoAplicado` se registran solo en la principal y se aplican al total de la compra; se envía una sola confirmación por compra; la cancelación es completa, sin parciales, con PA-5 referida al primer vuelo; se reembolsa el 80 % del neto pagado y las millas no se reponen. El modelo académico no se modifica. El detalle y los ejemplos están en 4.8. Quedan pendientes la cancelación parcial y las distancias (9.4). CU-03 no permite combinar conexiones diferentes (3.9); el mapa de asientos está aprobado en 4.4 y los datos ficticios de vuelos en 4.7.
+**C-3 — Representación del viaje: ida y vuelta y cantidad de pasajeros.** **RESUELTO - APROBADO POR OLIVER.** Se adopta C′: reserva principal académica + reservaciones componentes + agrupación interna. Se crea una reservación académica por pasajero y por trayecto; el `codigoReservacion` de la principal es el identificador visible y los códigos componentes son internos; la etiqueta y categoría de cada pasajero se guardan en la capa interna; la confirmación es todo o nada; `millasUtilizadas` y `descuentoAplicado` se registran solo en la principal y se aplican al total de la compra; se envía una sola confirmación por compra; la cancelación es completa, sin parciales, con PA-5 referida al primer vuelo; se reembolsa el 80 % del neto pagado y las millas no se reponen. El modelo académico no se modifica. El detalle y los ejemplos están en 4.8. Quedan pendientes la cancelación parcial (9.4); las distancias se aprobaron después en 4.7.2 (D-2). CU-03 no permite combinar conexiones diferentes (3.9); el mapa de asientos está aprobado en 4.4 y los datos ficticios de vuelos en 4.7.
 
 ### 9.3 Aclaraciones que no son contradicciones
 
 - **Tarifa plana:** el mercado cobra distinto a infantes; el prototipo aplica el mismo precio por decisión aprobada. La referencia de mercado se conserva solo como contexto.
 - **Infantes con plaza:** el mercado permite infantes en regazo; el prototipo les asigna plaza para simplificar la disponibilidad.
-- **Millas no repuestas al cancelar:** los documentos académicos no definen esa devolución; se documenta como vacío deliberado, no como regla.
+- **Millas no repuestas al cancelar:** los documentos académicos no definen esa devolución; se documenta como vacío deliberado, no como regla. Las millas acreditadas tampoco se revierten (5.2, decisión D-5).
 - **Equivalencia 10:1:** convierte el ejemplo de PA-1.10 en regla del prototipo; **no es una regla oficial de ConnectMiles ni de otra aerolínea** y no se presenta como tal.
 - **“No generar vuelos automáticamente”:** significa que el conjunto de 30 días se prepara fuera de la aplicación; no implica que el sistema los cree en ejecución.
 - **“Historial” excluido:** la lista de reservas necesaria para consultar y cancelar **sí** se incluye; lo excluido es un módulo de historial más amplio.
@@ -843,7 +878,6 @@ C-1, C-2 y C-3 quedaron resueltas y aprobadas. No quedan tensiones funcionales a
 ### 9.4 Pendientes operativos que no resuelve C-3
 
 1. Política de cancelación parcial y reembolso por componente.
-2. Distancias de cada conexión y unidad de medida, necesarias para determinar la acumulación de millas (4.7.2).
 
 CU-03 utiliza la misma conexión en ambos sentidos y no admite combinaciones (3.9). El mapa de asientos está aprobado en 4.4 y los servicios programados ficticios en 4.7. Los pendientes anteriores no reabren C-3 ni bloquean la landing; deben resolverse antes de las pantallas que los requieran. No se inventan reglas para ellos.
 
@@ -890,9 +924,16 @@ Tesla se usa como referencia, no como plantilla. No se copian assets, textos, lo
 
 No incluye aún reserva, panel del cliente ni panel del agente. La aplicación de millas (5.2) y la composición de la compra (4.8) pertenecen a la pantalla de reserva; no amplían el alcance de la landing.
 
+**Composición vigente de la landing (12/11/2026):** `Hero → Destinations → Routes → ExperienceSection → Footer`.
+
+- `Routes` muestra las cinco conexiones aprobadas de 4.1 —SDQ→SJU, SDQ→AUA, SDQ→MIA, SDQ→BOG y JBQ→HAV— con sus tarifas e imágenes del catálogo; cada tarjeta muestra las horas de salida locales desde el aeropuerto de origen de la conexión, derivadas de los servicios programados de 4.7 como datos de demostración, junto a los días de operación Lun/Mié/Vie.
+- `ExperienceSection` es una sección informativa aprobada: estadísticas «5 conexiones directas» y «60 salidas programadas semanales» —20 servicios programados × 3 días de operación— y llamadas a la acción «Explorar vuelos» (`#routes`) y «Crear cuenta» (`/ingresar?mode=register`). Su dirección visual está aprobada conforme a 10.5.
+
 ### 10.5 Exploración visual pendiente de aprobación formal **[EX]**
 
 El plan no registra aprobación formal para el concepto “Premium quiet aviation”, paleta, tipografías Manrope/Inter, escala tipográfica, radios y sombras, composición del hero, imágenes full-bleed, grid de 12 columnas, navegación transparente, animaciones, breakpoints, wordmark, monograma y slogan. Algunos de estos elementos ya aparecen en la aplicación prototipo y quedan sujetos a la revisión visual del usuario; no se consideran por ello aprobados ni deben alterarse sin autorización.
+
+**Aprobación registrada (12/11/2026):** la sección `ExperienceSection` de la landing adoptó una dirección visual inspirada en la sección «Full Self-Driving (Supervised)» de Tesla y quedó **aprobada** en revisión visual: tarjeta clara con distribución de contenido y video aproximadamente 40/60 en escritorio, video local adaptable a dispositivos (panorámico en escritorio, apilado y con recorte en móvil), estadísticas grandes con contador animado que respeta `prefers-reduced-motion`, y diseño responsive. Esta aprobación cubre únicamente esa sección; el resto de la exploración visual permanece sujeto a revisión.
 
 Las decisiones funcionales de 3.7, 3.8, 4.8 y 5.2 están cerradas y no forman parte de esta exploración.
 
@@ -900,9 +941,9 @@ Las decisiones funcionales de 3.7, 3.8, 4.8 y 5.2 están cerradas y no forman pa
 
 ## 11. Próximos pasos
 
-1. Revisar visualmente la implementación existente de la landing y registrar solo los cambios aprobados.
-2. Completar los pendientes operativos restantes: cancelación parcial y distancias (4.8.9, 9.4), antes de las pantallas que los requieran. CU-03 no admite combinaciones de conexiones (3.9).
-3. Elaborar un plan de alcance para cualquier funcionalidad futura, respetando las decisiones funcionales cerradas y las exclusiones aprobadas.
+1. Continuar la revisión visual de la implementación existente de la landing y registrar solo los cambios aprobados. CU-04 ya está implementado y publicado; la sección ExperienceSection quedó aprobada (10.5).
+2. Pendientes operativos: la cancelación parcial y la combinación de conexiones permanecen sin implementar. Cualquier planificación o desarrollo relacionado requerirá autorización expresa, respetando las decisiones funcionales cerradas y las exclusiones aprobadas.
+3. CU-05 (correo de confirmación simulado), CU-06 (cancelación con reembolso) y el panel del Agente permanecen pendientes; su alcance se definirá y autorizará de forma expresa antes de cualquier implementación, respetando las decisiones funcionales cerradas y las exclusiones aprobadas.
 
 **Regla de detención:** no se altera el diseño visual aprobado ni se amplía la funcionalidad sin aprobación explícita.
 
@@ -924,7 +965,11 @@ Las decisiones funcionales de 3.7, 3.8, 4.8 y 5.2 están cerradas y no forman pa
 | 08/11/2026 | **Versión 2.5 —** Aprobados los 20 servicios programados con datos ficticios, zonas IANA y cálculo local por fecha; aprobado el mapa 10 × 3 y la validación todo o nada de asientos. Se conservan como pendientes las distancias, la cancelación parcial y la combinación de conexiones | Aprobación explícita de Oliver |
 | 08/11/2026 | **Versión 2.6 —** Aprobadas las reglas de CU-03: acceso de Cliente con retorno contextual tras ingreso/registro, ida y vuelta por la misma conexión, máximo 30 pasajeros y disponibilidad ficticia determinista restablecida al recargar. Se define el límite antes de CU-04, sin implementar reservas ni otros componentes | Aprobación explícita de Oliver |
 | 08/11/2026 | **Versión 2.7 —** CU-03 implementado como prototipo: rutas `/panel`, `/buscar` y `/reservar` (stub), protección de sesión con retorno contextual, 20 servicios ficticios con cálculo IANA por fecha (incluido el override UTC−4 de `America/Havana` por la suspensión cubana hasta 2027), reservas demo de ocupación y corrección del botón «Mi panel» duplicado. Sin reservas reales ni CU-04 | Implementación autorizada por Oliver |
+| 09/11/2026 | **Versión 2.8 —** Tratamiento de millas en cancelación (D-5): PA-5 se aplica estrictamente; una vez completado el viaje y acreditadas las millas, su reversión no está contemplada. Se mantiene la no-reposición de las millas canjeadas y no se introducen políticas adicionales | Aprobación explícita de Oliver |
+| 09/11/2026 | **Versión 2.9 —** Reglas de millas de CU-04 cerradas: D-1 acreditación tras ida y vuelta con acreditación perezosa por fecha; D-2 distancias ficticias por trayecto en 4.7.2; D-3 todos los pasajeros generan millas a la cuenta titular; D-4 titularidad exclusiva, uso en reservas propias y sin transferencias; D-6 canje opcional sobre el total. Las distancias dejan de ser pendientes (4.8.9, 9.4) | Aprobación explícita de Oliver |
+| 09/11/2026 | **Versión 2.10 —** Precisión de D-1: una compra cancelada antes de la finalización del viaje no completa el viaje y no acredita millas. Sin cambios en D-5 ni en PA-5 | Aprobación explícita de Oliver |
+| 12/11/2026 | **Versión 2.11 —** Estado actualizado: CU-04 implementado y publicado en `ac7801f` (`/reservar` con aviso de cuenta para Visitantes y `/confirmacion`); composición vigente de la landing documentada (Hero → Destinations → Routes → ExperienceSection → Footer), con horarios de salida en las tarjetas derivados de 4.7 y las estadísticas 5 conexiones / 60 salidas semanales; aprobación visual de ExperienceSection registrada (10.5). CU-05, CU-06 y el panel del Agente permanecen pendientes | Implementación y estado del repositorio |
 
 ---
 
-**Fin del documento.** Planificación funcional cerrada. C-1, C-2 y C-3 resueltas; las reglas de CU-03 aprobadas e implementadas como prototipo (búsqueda `/buscar`, panel mínimo `/panel`, stub `/reservar`); los 20 servicios ficticios y el mapa 10 × 3 están aprobados. Permanecen pendientes la cancelación parcial y las distancias (4.8.9, 9.4), CU-04 y el panel del Agente.
+**Fin del documento.** Planificación funcional cerrada. C-1, C-2 y C-3 resueltas; CU-03 y CU-04 implementados como prototipo publicado (búsqueda `/buscar`, reserva `/reservar` con aviso de cuenta, confirmación `/confirmacion`, panel `/panel`); los 20 servicios ficticios, el mapa 10 × 3 y las reglas de millas están aprobados e implementados. Permanecen pendientes CU-05, CU-06, el panel del Agente, la cancelación parcial y la combinación de conexiones (4.8.9, 9.4).
