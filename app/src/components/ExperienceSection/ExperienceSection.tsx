@@ -55,10 +55,12 @@ function useCountUp(target: number) {
 }
 
 /**
- * Landing section inspired by Tesla's Full Self-Driving block: split layout
- * with content on the left and a cinematic video panel on the right,
- * eyebrow/title/description, large statistics and a primary CTA with a
- * secondary text link. Stacks vertically on mobile.
+ * Landing section built as a close visual replica of Tesla's
+ * "Full Self-Driving (Supervised)" card: a light rounded card with the
+ * headline, description, statistics and CTAs on the left and a cinematic
+ * 16:9 video on the right (60% of the card). Below 1200px the card stacks
+ * header / video / statistics, and below 600px the video turns into a
+ * full-bleed 3:4 portrait crop.
  *
  * Video asset: `public/videos/nueva-seccion.mp4`.
  */
@@ -66,54 +68,62 @@ export function ExperienceSection() {
   const [departuresRef, departuresValue] = useCountUp(WEEKLY_DEPARTURES);
 
   return (
-    <section className="experience-section">
-      <div className="experience-section__content">
-        <span className="experience-section__label">Sky Nova Airlines</span>
-        <h2 className="heading-lg experience-section__title">
-          Descubre una nueva forma de viajar.
-        </h2>
-        <p className="experience-section__desc">
-          Conectamos destinos para que tu próximo viaje comience con una
-          experiencia sencilla y cómoda.
-        </p>
+    <section className="experience-section" aria-labelledby="experience-title">
+      <div className="experience-section__card">
+        <div className="experience-section__content">
+          <header className="experience-section__header">
+            <span className="experience-section__eyebrow">
+              Sky Nova Airlines
+            </span>
+            <h2 id="experience-title" className="experience-section__title">
+              <span>Descubre una nueva forma de viajar.</span>
+            </h2>
+            <p className="experience-section__desc">
+              Conectamos destinos para que tu próximo viaje comience con una
+              experiencia sencilla y cómoda.
+            </p>
+          </header>
 
-        <div className="experience-section__stats">
-          <div className="experience-section__stat">
-            <span className="experience-section__stat-value">5</span>
-            <span className="experience-section__stat-label">
-              Conexiones directas
-            </span>
-          </div>
-          <div className="experience-section__stat">
-            <span
-              className="experience-section__stat-value"
-              ref={departuresRef}
-            >
-              {departuresValue}
-            </span>
-            <span className="experience-section__stat-label">
-              Salidas programadas por semana
-            </span>
+          <div className="experience-section__footer">
+            <div className="experience-section__stats">
+              <div className="experience-section__stat">
+                <span className="experience-section__stat-value">5</span>
+                <span className="experience-section__stat-label">
+                  Conexiones directas
+                </span>
+              </div>
+              <div className="experience-section__stat">
+                <span
+                  className="experience-section__stat-value"
+                  ref={departuresRef}
+                >
+                  {departuresValue}
+                </span>
+                <span className="experience-section__stat-label">
+                  Salidas programadas semanales
+                </span>
+              </div>
+            </div>
+
+            <div className="experience-section__actions">
+              <a href="#routes" className="experience-section__cta">
+                Explorar vuelos
+              </a>
+              <Link
+                to="/ingresar?mode=register"
+                className="experience-section__cta experience-section__cta--secondary"
+              >
+                Crear cuenta
+              </Link>
+            </div>
           </div>
         </div>
 
-        <div className="experience-section__actions">
-          <a href="#routes" className="experience-section__cta">
-            Explorar vuelos
-          </a>
-          <Link
-            to="/ingresar?mode=register"
-            className="experience-section__link"
-          >
-            Crear cuenta
-          </Link>
+        <div className="experience-section__media" aria-hidden="true">
+          <video autoPlay muted loop playsInline preload="metadata">
+            <source src="/videos/nueva-seccion.mp4" type="video/mp4" />
+          </video>
         </div>
-      </div>
-
-      <div className="experience-section__media" aria-hidden="true">
-        <video autoPlay muted loop playsInline preload="metadata">
-          <source src="/videos/nueva-seccion.mp4" type="video/mp4" />
-        </video>
       </div>
     </section>
   );

@@ -1,137 +1,184 @@
-/* ---------- Experience Section — split layout, content left / video right ---------- */
+/* ---------- Experience Section ----------
+   Visual replica of Tesla's "Full Self-Driving (Supervised)" card:
+   light rounded card, headline + stats + CTAs on the left, 16:9 video
+   on the right (60% width). Measured from tesla.com at 1440 / 1280 /
+   1024 / 768 / 430 px. */
+
 .experience-section {
-  position: relative;
   width: 100%;
-  min-height: 90vh;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  overflow: hidden;
-  background: var(--cn-navy);
+  padding: 48px;
+  background: var(--cn-white);
 }
 
+.experience-section__card {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+  background: #f4f4f4;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ---- Left column ---- */
 .experience-section__content {
-  position: relative;
-  z-index: 2;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: var(--space-3xl) var(--space-2xl);
-  max-width: 40rem;
+  align-items: flex-start;
+  padding: 32px 48px 16px;
 }
 
-.experience-section__label {
-  display: inline-block;
-  color: var(--cn-white);
-  font-size: 0.8125rem;
-  font-weight: 600;
+.experience-section__header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.experience-section__eyebrow {
+  margin-bottom: 8px;
+  color: #5c5e62;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: var(--space-sm);
 }
 
 .experience-section__title {
-  color: var(--cn-white);
-  margin-bottom: var(--space-md);
+  margin: 0;
+  color: #171a20;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 500;
+  line-height: 48px;
+  letter-spacing: -0.01em;
+  transition:
+    font-size 330ms ease,
+    line-height 330ms ease;
+}
+
+/* Signature Tesla gradient: dark → blue → dark, clipped to the glyphs. */
+.experience-section__title span {
+  background-image: linear-gradient(
+    90deg,
+    #171a20 0%,
+    #3e6ae1 50%,
+    #171a20 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 .experience-section__desc {
-  max-width: 34rem;
-  margin: 0 0 var(--space-2xl);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: clamp(1.125rem, 1.4vw, 1.25rem);
-  font-weight: 500;
-  line-height: 1.45;
+  margin: 0;
+  color: #5c5e62;
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 24px;
 }
 
 /* ---- Statistics ---- */
+.experience-section__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+}
+
 .experience-section__stats {
   display: flex;
-  justify-content: flex-start;
   align-items: flex-start;
-  gap: var(--space-3xl);
-  margin-bottom: var(--space-2xl);
-  flex-wrap: wrap;
+  gap: 40px;
+  margin-top: 32px;
 }
 
 .experience-section__stat {
-  min-width: 10rem;
-  text-align: left;
+  display: flex;
+  flex-direction: column;
 }
 
 .experience-section__stat-value {
-  display: block;
+  color: #171a20;
   font-family: var(--font-display);
-  font-size: clamp(3rem, 6vw, 4.5rem);
-  font-weight: 700;
-  color: var(--cn-white);
-  line-height: 1;
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 44px;
+  font-variant-numeric: tabular-nums;
 }
 
 .experience-section__stat-label {
-  display: block;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.8125rem;
-  letter-spacing: 0.04em;
-  margin-top: 0.6rem;
+  color: #5c5e62;
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 24px;
 }
 
 /* ---- Calls to action ---- */
 .experience-section__actions {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-xl);
-  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 48px;
 }
 
 .experience-section__cta {
   display: inline-flex;
-  min-height: 2.875rem;
   align-items: center;
   justify-content: center;
-  padding: 0.875rem 2.25rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  background: var(--cn-white);
-  color: var(--cn-navy);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  white-space: nowrap;
+  width: 200px;
+  height: 40px;
+  padding: 4px;
+  border: 3px solid transparent;
+  border-radius: 4px;
+  background: #171a20;
+  color: #eeeeee;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 16.8px;
+  text-align: center;
   text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
   transition:
-    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
-    transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    border-color 330ms ease,
+    background-color 330ms ease,
+    color 330ms ease,
+    box-shadow 250ms ease;
 }
 
 .experience-section__cta:hover {
-  background: #f3f4f6;
-  transform: translateY(-1px);
+  background: #393c41;
 }
 
-.experience-section__link {
-  color: var(--cn-white);
-  font-size: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  text-decoration-color: rgba(255, 255, 255, 0.5);
-  white-space: nowrap;
-  transition: text-decoration-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+.experience-section__cta--secondary {
+  background: var(--cn-white);
+  color: #393c41;
 }
 
-.experience-section__link:hover {
-  text-decoration-color: var(--cn-white);
+.experience-section__cta--secondary:hover {
+  background: #eeeeee;
+  color: #393c41;
 }
 
-/* ---- Video panel ---- */
+.experience-section__cta:focus-visible {
+  outline: 2px solid #3e6ae1;
+  outline-offset: 2px;
+}
+
+/* ---- Video ---- */
 .experience-section__media {
   position: relative;
-  min-height: 100%;
   overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: 0 8px 8px 0;
+  background: #e9e9e9;
+  transition:
+    aspect-ratio 800ms ease-in-out,
+    border-radius 800ms ease-in-out;
 }
 
 .experience-section__media video {
@@ -140,33 +187,96 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: 50% 50%;
 }
 
-/* ---- Mobile ---- */
-@media (max-width: 768px) {
-  .experience-section {
-    grid-template-columns: 1fr;
-    min-height: auto;
-  }
+/* ---------- 1200–1439px: slightly tighter card padding ---------- */
+@media (max-width: 1439px) and (min-width: 1200px) {
   .experience-section__content {
-    padding: var(--space-2xl) var(--space-md) var(--space-xl);
-    max-width: none;
+    padding: 32px 24px 16px;
   }
-  .experience-section__media {
-    min-height: 50vh;
-  }
+
   .experience-section__stats {
-    gap: var(--space-xl);
+    gap: 20px;
   }
-  .experience-section__stat {
-    min-width: 7rem;
+}
+
+/* ---------- Below 1200px: stacked card (header / video / stats) ---------- */
+@media (max-width: 1199px) {
+  .experience-section {
+    padding: 36px;
   }
-  .experience-section__actions {
+
+  .experience-section__card {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+
+  /* Dissolve the left column so the header and footer can wrap the video. */
+  .experience-section__content {
+    display: contents;
+  }
+
+  .experience-section__header {
+    grid-row: 1;
+    padding: 24px;
+  }
+
+  .experience-section__media {
+    grid-row: 2;
+    border-radius: 0;
+  }
+
+  .experience-section__footer {
+    grid-row: 3;
+    padding: 24px;
+  }
+
+  .experience-section__stats {
     flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-md);
+    gap: 40px;
+    margin-top: 0;
   }
+
+  .experience-section__actions {
+    margin-top: 32px;
+  }
+}
+
+/* ---------- 600–1023px ---------- */
+@media (max-width: 1023px) and (min-width: 600px) {
+  .experience-section {
+    padding: 32px;
+  }
+}
+
+/* ---------- Mobile: full-bleed portrait video ---------- */
+@media (max-width: 599px) {
+  .experience-section {
+    padding: 12px;
+  }
+
+  .experience-section__media {
+    aspect-ratio: 3 / 4;
+  }
+
+  .experience-section__actions {
+    width: 100%;
+  }
+
   .experience-section__cta {
-    padding-inline: 1.5rem;
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    padding-inline: 8px;
+  }
+}
+
+/* ---------- Motion preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .experience-section__media,
+  .experience-section__title,
+  .experience-section__cta {
+    transition: none;
   }
 }
