@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   BrowserRouter,
   Navigate,
@@ -17,8 +16,11 @@ import { LoginPage } from '@/components/LoginPage/LoginPage';
 import { RequireCustomer } from '@/components/RequireCustomer';
 import { ClientPanel } from '@/components/ClientPanel/ClientPanel';
 import { SearchPage } from '@/components/SearchPage/SearchPage';
-import { BookingStub } from '@/components/BookingStub/BookingStub';
-import { initialCustomers, type DemoCustomer } from '@/data/customers';
+import { BookingPage } from '@/components/BookingPage/BookingPage';
+import { BookingConfirmation } from '@/components/BookingConfirmation/BookingConfirmation';
+import { BookingProvider } from '@/components/BookingProvider/BookingProvider';
+import { useBooking } from '@/components/BookingProvider/useBooking';
+import type { DemoCustomer } from '@/data/customers';
 
 function AppLayout({
   customer,
@@ -40,16 +42,8 @@ function AppLayout({
   );
 }
 
-export default function App() {
-  const [customers, setCustomers] = useState<DemoCustomer[]>(initialCustomers);
-  const [activeCustomer, setActiveCustomer] = useState<DemoCustomer | null>(null);
-
-  const registerCustomer = (customer: DemoCustomer) => {
-    setCustomers((currentCustomers) => [...currentCustomers, customer]);
-    setActiveCustomer(customer);
-  };
-
-  const logout = () => setActiveCustomer(null);
+function AppRoutes() {
+  const { customers, activeCustomer, login, register, logout } = useBooking();
 
   return (
     <BrowserRouter>
@@ -74,8 +68,15 @@ export default function App() {
           <Route element={<RequireCustomer customer={activeCustomer} />}>
             <Route path="/panel" element={<ClientPanel onLogout={logout} />} />
             <Route path="/buscar" element={<SearchPage />} />
-            <Route path="/reservar" element={<BookingStub />} />
+            <Route
+              path="/confirmacion"
+              element={<BookingConfirmation />}
+            />
           </Route>
+          {/* CU-04 (C-1.5): /reservar renders its own guest gate; it is not
+              wrapped in RequireCustomer so visitors see the account notice
+              instead of a bare redirect. */}
+          <Route path="/reservar" element={<BookingPage />} />
         </Route>
         <Route
           path="/ingresar"
@@ -83,8 +84,8 @@ export default function App() {
             <LoginPage
               activeCustomer={activeCustomer}
               customers={customers}
-              onLogin={setActiveCustomer}
-              onRegister={registerCustomer}
+              onLogin={login}
+              onRegister={register}
               onLogout={logout}
             />
           }
@@ -92,5 +93,13 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </RouterRoutes>
     </BrowserRouter>
+  );
+}
+
+export default function App() {
+  return (
+    <BookingProvider>
+      <AppRoutes />
+    </BookingProvider>
   );
 }

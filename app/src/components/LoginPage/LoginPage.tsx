@@ -6,6 +6,7 @@ import {
   useSearchParams,
 } from 'react-router';
 import { type DemoCustomer } from '@/data/customers';
+import { useAccrualSync } from '@/components/BookingProvider/useBooking';
 import './LoginPage.css';
 
 /** Internal destinations allowed for contextual return after login (C-1). */
@@ -51,6 +52,7 @@ export function LoginPage({
   const [customerType, setCustomerType] = useState<DemoCustomer['type']>('Minorista');
   const [company, setCompany] = useState('');
   const [error, setError] = useState('');
+  useAccrualSync();
 
   const handleLogout = () => {
     setEmail('');

@@ -1,0 +1,393 @@
+.booking {
+  padding: calc(var(--nav-height) + var(--space-lg)) 0 4rem;
+}
+
+.booking__header {
+  margin-bottom: 1.5rem;
+}
+
+.booking__eyebrow {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent, #0b5fff);
+  margin-bottom: 0.35rem;
+}
+
+.booking__title {
+  font-size: 1.9rem;
+  margin: 0;
+}
+
+.booking__section-title {
+  font-size: 1.15rem;
+  margin: 0 0 1rem;
+}
+
+.booking__card {
+  background: #fff;
+  border: 1px solid #e3e8ef;
+  border-radius: 14px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.booking__text {
+  color: #445;
+  line-height: 1.6;
+}
+
+.booking__legs {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.booking__leg {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem 1rem;
+  background: #f6f8fb;
+  border-radius: 10px;
+}
+
+.booking__leg-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0b5fff;
+}
+
+.booking__leg-flight {
+  font-weight: 600;
+}
+
+.booking__leg-time {
+  font-size: 0.9rem;
+  color: #556;
+}
+
+.booking__details {
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.booking__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.booking__row dt {
+  color: #556;
+}
+
+.booking__row dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.booking__row--total {
+  border-top: 1px solid #e3e8ef;
+  padding-top: 0.6rem;
+  font-size: 1.1rem;
+}
+
+.booking__leg-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.booking__leg-tab {
+  border: 1px solid #cfd8e3;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.booking__leg-tab--active {
+  background: #0b5fff;
+  border-color: #0b5fff;
+  color: #fff;
+}
+
+.booking__pax-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.booking__pax-chip {
+  border: 1px solid #cfd8e3;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.booking__pax-chip small {
+  color: #667;
+  font-weight: 400;
+}
+
+.booking__pax-chip--active {
+  border-color: #0b5fff;
+  box-shadow: 0 0 0 2px rgba(11, 95, 255, 0.25);
+}
+
+.booking__seat-hint {
+  color: #556;
+  font-size: 0.9rem;
+  margin: 0 0 1rem;
+}
+
+.seat-map {
+  display: grid;
+  gap: 0.4rem;
+  max-width: 340px;
+  margin: 0 auto 1rem;
+}
+
+.seat-map__row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.seat-map__row-label {
+  width: 1.4rem;
+  font-size: 0.75rem;
+  color: #778;
+  text-align: right;
+}
+
+.seat-map__aisle {
+  width: 1.4rem;
+}
+
+.seat-map__seat {
+  position: relative;
+  width: 3rem;
+  height: 2.6rem;
+  border-radius: 8px;
+  border: 1px solid #b9c6d8;
+  background: #f2f6fc;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.05rem;
+  padding: 0;
+}
+
+.seat-map__seat-id {
+  line-height: 1;
+}
+
+.seat-map__seat-pax {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #fff;
+  background: #0b5fff;
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+}
+
+.seat-map__seat--free:hover {
+  border-color: #0b5fff;
+  background: #e3edff;
+}
+
+.seat-map__seat--current {
+  background: #0b5fff;
+  border-color: #0b5fff;
+  color: #fff;
+}
+
+.seat-map__seat--current .seat-map__seat-pax {
+  background: #fff;
+  color: #0b5fff;
+}
+
+.seat-map__seat--taken {
+  background: #dfe7f3;
+  border-color: #c3cede;
+  color: #667;
+  cursor: not-allowed;
+}
+
+.seat-map__seat--taken .seat-map__seat-pax {
+  background: #8fa3c0;
+}
+
+.seat-map__seat--occupied {
+  background: #f1d7d7;
+  border-color: #e0a9a9;
+  color: #9a4a4a;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.booking__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  font-size: 0.8rem;
+  color: #556;
+  margin-bottom: 1rem;
+}
+
+.booking__legend-dot {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+  margin-right: 0.35rem;
+  vertical-align: -1px;
+}
+
+.booking__legend-dot--free {
+  background: #f2f6fc;
+  border: 1px solid #b9c6d8;
+}
+
+.booking__legend-dot--current {
+  background: #0b5fff;
+}
+
+.booking__legend-dot--taken {
+  background: #dfe7f3;
+  border: 1px solid #c3cede;
+}
+
+.booking__legend-dot--occupied {
+  background: #f1d7d7;
+  border: 1px solid #e0a9a9;
+}
+
+.booking__seats-summary {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.booking__seats-leg h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.4rem;
+}
+
+.booking__seats-leg ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.booking__miles {
+  border: 1px solid #e3e8ef;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin: 0 0 1.25rem;
+}
+
+.booking__miles legend {
+  padding: 0 0.4rem;
+}
+
+.booking__miles-balance {
+  margin: 0 0 0.25rem;
+}
+
+.booking__miles-rules {
+  margin: 0 0 0.9rem;
+  font-size: 0.85rem;
+  color: #556;
+}
+
+.booking__miles-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.booking__miles-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.booking__input {
+  width: 10rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.booking__totals {
+  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.4rem;
+  border-top: 1px solid #e3e8ef;
+  padding-top: 1rem;
+}
+
+.booking__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.booking__secondary {
+  border: 1px solid #cfd8e3;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  display: inline-block;
+}
+
+.booking__hint {
+  font-size: 0.85rem;
+  color: #667;
+}
+
+.booking__error {
+  color: #b3261e;
+  background: #fdecea;
+  border: 1px solid #f5c6c0;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+.booking__note {
+  font-size: 0.85rem;
+  color: #667;
+  margin: 0.9rem 0 0;
+}

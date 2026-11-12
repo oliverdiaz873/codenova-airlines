@@ -1,5 +1,6 @@
 import { Link, useNavigate, useOutletContext } from 'react-router';
 import type { DemoCustomer } from '@/data/customers';
+import { useAccrualSync } from '@/components/BookingProvider/useBooking';
 import './ClientPanel.css';
 
 interface ClientPanelProps {
@@ -14,6 +15,7 @@ interface ClientPanelProps {
 export function ClientPanel({ onLogout }: ClientPanelProps) {
   const customer = useOutletContext<DemoCustomer>();
   const navigate = useNavigate();
+  useAccrualSync();
 
   const handleLogout = () => {
     onLogout();

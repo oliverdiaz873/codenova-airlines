@@ -1,0 +1,185 @@
+.confirmation {
+  padding: calc(var(--nav-height) + var(--space-lg)) 0 4rem;
+}
+
+.confirmation__header {
+  margin-bottom: 1.5rem;
+}
+
+.confirmation__eyebrow {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent, #0b5fff);
+  margin-bottom: 0.35rem;
+}
+
+.confirmation__title {
+  font-size: 1.9rem;
+  margin: 0;
+}
+
+.confirmation__section-title {
+  font-size: 1.15rem;
+  margin: 0 0 1rem;
+}
+
+.confirmation__card {
+  background: #fff;
+  border: 1px solid #e3e8ef;
+  border-radius: 14px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.confirmation__text {
+  color: #445;
+  line-height: 1.6;
+}
+
+.confirmation__status-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.confirmation__status {
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.confirmation__status--confirmada {
+  background: #e6f4ea;
+  border: 1px solid #b7dfc2;
+  color: #1e7e34;
+}
+
+.confirmation__status--cancelada {
+  background: #fdecea;
+  border: 1px solid #f5c6c0;
+  color: #b3261e;
+}
+
+.confirmation__code {
+  color: #556;
+  font-size: 0.95rem;
+}
+
+.confirmation__legs {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.confirmation__leg {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem 1rem;
+  background: #f6f8fb;
+  border-radius: 10px;
+}
+
+.confirmation__leg-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0b5fff;
+}
+
+.confirmation__leg-flight {
+  font-weight: 600;
+}
+
+.confirmation__leg-time {
+  font-size: 0.9rem;
+  color: #556;
+}
+
+.confirmation__details,
+.confirmation__totals {
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.confirmation__totals {
+  border-top: 1px solid #e3e8ef;
+  padding-top: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.confirmation__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.confirmation__row dt {
+  color: #556;
+}
+
+.confirmation__row dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.confirmation__row--total {
+  border-top: 1px solid #e3e8ef;
+  padding-top: 0.6rem;
+  font-size: 1.1rem;
+}
+
+.confirmation__seats {
+  display: grid;
+  gap: 1rem;
+}
+
+.confirmation__seats-leg h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.4rem;
+}
+
+.confirmation__seats-leg ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.confirmation__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.confirmation__secondary {
+  border: 1px solid #cfd8e3;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  display: inline-block;
+}
+
+.confirmation__note {
+  font-size: 0.85rem;
+  color: #667;
+  margin: 0.9rem 0 0;
+}

@@ -135,7 +135,14 @@ export function SearchPage() {
   }, []);
 
   const [originIata, setOriginIata] = useState(originOptions[0]?.origin.iata ?? '');
-  const [destinationIata, setDestinationIata] = useState('');
+  // Same defaulting rule as handleOriginChange: the destination state must
+  // start with a real value, or the select can show an option while routeId
+  // resolves to '' and the search is rejected.
+  const [destinationIata, setDestinationIata] = useState(
+    () =>
+      FLIGHT_CONNECTIONS.find((c) => c.origin.iata === originIata)
+        ?.destination.iata ?? '',
+  );
   const [departureDate, setDepartureDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
   const [adults, setAdults] = useState(1);

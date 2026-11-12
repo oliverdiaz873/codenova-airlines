@@ -278,6 +278,143 @@ function toLegSummary(
   };
 }
 
+/**
+ * Verifies a leg summary against the real scheduled service: the flight
+ * number must exist, belong to the route, fly the expected direction on an
+ * operating date, and every descriptive field must match what
+ * buildOccurrence/toLegSummary would produce — including the IANA-based
+ * arrival time and next-day flag. Nothing from location.state is trusted.
+ */
+function isValidLegSummary(
+  leg: unknown,
+  routeId: string,
+  expectedDate: string,
+  expectedOriginIata: string,
+  expectedDestinationIata: string,
+  fare: number,
+): leg is SelectedLegSummary {
+  if (typeof leg !== 'object' || leg === null) return false;
+  const summary = leg as Partial<SelectedLegSummary>;
+  if (
+    typeof summary.flightNumber !== 'string' ||
+    summary.flightNumber.length === 0
+  ) {
+    return false;
+  }
+
+  const service = SCHEDULED_SERVICES.find(
+    (candidate) => candidate.flightNumber === summary.flightNumber,
+  );
+  if (!service || service.routeId !== routeId) return false;
+  if (
+    service.origin.iata !== expectedOriginIata ||
+    service.destination.iata !== expectedDestinationIata
+  ) {
+    return false;
+  }
+  if (summary.date !== expectedDate || !isOperatingDate(expectedDate)) {
+    return false;
+  }
+  if (summary.departureTime !== service.departureLocal) return false;
+  if (summary.durationMinutes !== service.durationMinutes) return false;
+  if (summary.fare !== fare) return false;
+
+  const departureUtc = localDateTimeToUtc(
+    expectedDate,
+    service.departureLocal,
+    service.origin.timeZone,
+  );
+  const arrivalUtc = new Date(
+    departureUtc.getTime() + service.durationMinutes * 60_000,
+  );
+  const arrival = utcToLocalDateTime(arrivalUtc, service.destination.timeZone);
+  if (summary.arrivalTime !== arrival.time) return false;
+  if (summary.arrivalNextDay !== (arrival.date !== expectedDate)) return false;
+
+  if (
+    summary.originLabel !==
+      `${service.origin.city} (${service.origin.iata})` ||
+    summary.destinationLabel !==
+      `${service.destination.city} (${service.destination.iata})`
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Hard boundary check for a SearchSelection arriving via router state
+ * (CU-04 entry). Rejects anything that is not exactly what
+ * buildSearchSelection produces: known route, coherent passengers and
+ * dates, complete leg summaries at the connection fare, and a total price
+ * equal to fare x 2 legs x passengers. Pure and side-effect free.
+ */
+export function isValidSearchSelection(value: unknown): value is SearchSelection {
+  if (typeof value !== 'object' || value === null) return false;
+  const selection = value as Partial<SearchSelection>;
+
+  const connection = FLIGHT_CONNECTIONS.find((c) => c.id === selection.routeId);
+  if (!connection) return false;
+
+  if (
+    typeof selection.departureDate !== 'string' ||
+    !isValidISODate(selection.departureDate) ||
+    typeof selection.returnDate !== 'string' ||
+    !isValidISODate(selection.returnDate) ||
+    selection.returnDate < selection.departureDate
+  ) {
+    return false;
+  }
+
+  const passengers = selection.passengers;
+  if (typeof passengers !== 'object' || passengers === null) return false;
+  const { adults, children, infants } = passengers;
+  if (
+    ![adults, children, infants].every(
+      (count) => Number.isInteger(count) && (count as number) >= 0,
+    )
+  ) {
+    return false;
+  }
+  if (
+    !Number.isInteger(selection.totalPassengers) ||
+    (selection.totalPassengers as number) <= 0 ||
+    (selection.totalPassengers as number) > MAX_PASSENGERS_PER_SEARCH ||
+    (adults as number) + (children as number) + (infants as number) !==
+      selection.totalPassengers
+  ) {
+    return false;
+  }
+
+  if (
+    !isValidLegSummary(
+      selection.outbound,
+      connection.id,
+      selection.departureDate,
+      connection.origin.iata,
+      connection.destination.iata,
+      connection.farePerPassenger,
+    ) ||
+    !isValidLegSummary(
+      selection.returnFlight,
+      connection.id,
+      selection.returnDate,
+      connection.destination.iata,
+      connection.origin.iata,
+      connection.farePerPassenger,
+    )
+  ) {
+    return false;
+  }
+
+  return (
+    Number.isFinite(selection.totalPrice) &&
+    selection.totalPrice ===
+      connection.farePerPassenger * 2 * (selection.totalPassengers as number)
+  );
+}
+
 /** Serializable summary handed to CU-04 via router state. */
 export function buildSearchSelection(
   criteria: SearchCriteria,
