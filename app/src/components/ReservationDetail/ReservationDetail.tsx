@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { formatCurrency } from '@/data/flights';
-import { SCHEDULED_SERVICES } from '@/data/scheduledServices';
+import { scheduledServiceForDate } from '@/lib/flightUpdate';
 import {
   cancelDeadlineUtcMs,
   isCancellationEligible,
@@ -36,7 +36,8 @@ function formatInstant(ms: number): string {
  */
 export function ReservationDetail() {
   const { code } = useParams<{ code: string }>();
-  const { purchases, activeCustomer, cancelPurchase } = useBooking();
+  const { purchases, activeCustomer, cancelPurchase, flightUpdates } =
+    useBooking();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [justCancelled, setJustCancelled] = useState(false);
@@ -56,8 +57,8 @@ export function ReservationDetail() {
   );
 
   const legs = useMemo(
-    () => (purchase ? purchaseLegs(purchase) : []),
-    [purchase],
+    () => (purchase ? purchaseLegs(purchase, flightUpdates) : []),
+    [purchase, flightUpdates],
   );
 
   if (!purchase) {
@@ -79,7 +80,7 @@ export function ReservationDetail() {
     );
   }
 
-  const eligible = isCancellationEligible(purchase, viewedAtMs);
+  const eligible = isCancellationEligible(purchase, viewedAtMs, flightUpdates);
   const isCancelled = purchase.status === 'cancelada';
   const breakdown = refundBreakdown(purchase.netTotal);
 
@@ -88,11 +89,13 @@ export function ReservationDetail() {
     (component) => component.leg === 'ida',
   );
   const originService = firstComponent
-    ? SCHEDULED_SERVICES.find(
-        (service) => service.flightNumber === firstComponent.flightNumber,
+    ? scheduledServiceForDate(
+        firstComponent.flightNumber,
+        flightUpdates,
+        firstComponent.date,
       )
     : undefined;
-  const deadlineMs = cancelDeadlineUtcMs(purchase);
+  const deadlineMs = cancelDeadlineUtcMs(purchase, flightUpdates);
   const deadlineLabel =
     deadlineMs !== null && originService
       ? (() => {
@@ -128,7 +131,9 @@ export function ReservationDetail() {
               {isCancelled ? 'Cancelada' : 'Confirmada'}
             </span>
           </h1>
-          <p className="reservation__route">{purchaseRouteLabel(purchase)}</p>
+          <p className="reservation__route">
+            {purchaseRouteLabel(purchase, flightUpdates)}
+          </p>
         </header>
 
         {justCancelled && (

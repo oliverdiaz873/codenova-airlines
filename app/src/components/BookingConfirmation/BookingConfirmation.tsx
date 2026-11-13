@@ -135,14 +135,15 @@ const EMAIL_STATUS_MESSAGES: Record<ConfirmationEmailStatus, string> = {
 
 export function BookingConfirmation() {
   const location = useLocation();
-  const { purchases, customers, sendConfirmationEmail } = useBooking();
+  const { purchases, customers, sendConfirmationEmail, flightUpdates } =
+    useBooking();
 
   const state = location.state as {
     code?: unknown;
     selection?: unknown;
   } | null;
   const code = typeof state?.code === 'string' ? state.code : null;
-  const selection = isValidSearchSelection(state?.selection)
+  const selection = isValidSearchSelection(state?.selection, flightUpdates)
     ? state.selection
     : null;
   const purchase = code
@@ -218,7 +219,11 @@ export function BookingConfirmation() {
   const recipientName = customers.find(
     (customer) => customer.email === purchase.customerEmail,
   )?.name;
-  const email = buildConfirmationEmail(purchase, recipientName);
+  // CU-07: once the send attempt ran, the frozen snapshot is authoritative;
+  // the live build is only the PENDING preview before any attempt.
+  const email =
+    purchase.confirmationEmailContent ??
+    buildConfirmationEmail(purchase, recipientName, flightUpdates);
 
   return (
     <main className="confirmation">

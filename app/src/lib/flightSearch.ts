@@ -17,6 +17,11 @@ import {
   type ScheduledService,
 } from '@/data/scheduledServices';
 import {
+  scheduledServiceForDate,
+  serviceForDate,
+  type FlightUpdates,
+} from '@/lib/flightUpdate';
+import {
   addDaysISO,
   isOperatingDate,
   isValidISODate,
@@ -108,28 +113,33 @@ function buildOccurrence(
   service: ScheduledService,
   date: string,
   occupancy: Map<string, number>,
+  flightUpdates?: FlightUpdates,
 ): FlightOccurrence | null {
   if (!isOperatingDate(date)) return null;
 
+  // CU-07: resolve the schedule in effect for this occurrence date —
+  // updates apply only while the flight had not departed.
+  const resolved = serviceForDate(service, flightUpdates?.[service.flightNumber], date);
+
   const departureUtc = localDateTimeToUtc(
     date,
-    service.departureLocal,
-    service.origin.timeZone,
+    resolved.departureLocal,
+    resolved.origin.timeZone,
   );
   const arrivalUtc = new Date(
-    departureUtc.getTime() + service.durationMinutes * 60_000,
+    departureUtc.getTime() + resolved.durationMinutes * 60_000,
   );
-  const arrival = utcToLocalDateTime(arrivalUtc, service.destination.timeZone);
+  const arrival = utcToLocalDateTime(arrivalUtc, resolved.destination.timeZone);
   const occupied = occupancy.get(`${service.flightNumber}|${date}`) ?? 0;
 
   return {
     key: `${service.flightNumber}@${date}`,
-    service,
+    service: resolved,
     date,
-    departureTime: service.departureLocal,
+    departureTime: resolved.departureLocal,
     arrivalTime: arrival.time,
     arrivalNextDay: arrival.date !== date,
-    durationMinutes: service.durationMinutes,
+    durationMinutes: resolved.durationMinutes,
     availableSeats: MAX_SEATS_PER_OCCURRENCE - occupied,
   };
 }
@@ -146,6 +156,7 @@ function byDepartureTime(a: FlightOccurrence, b: FlightOccurrence): number {
 export function searchFlights(
   criteria: SearchCriteria,
   referenceDateISO: string = todayISO(),
+  flightUpdates?: FlightUpdates,
 ): FlightSearchResults {
   const connection = FLIGHT_CONNECTIONS.find((c) => c.id === criteria.routeId);
   if (!connection) return { outbound: [], returnOptions: [] };
@@ -153,7 +164,7 @@ export function searchFlights(
   const occupancy = buildOccupancyMap(referenceDateISO);
 
   const outbound = servicesForDirection(criteria.routeId, connection.origin.iata)
-    .map((service) => buildOccurrence(service, criteria.departureDate, occupancy))
+    .map((service) => buildOccurrence(service, criteria.departureDate, occupancy, flightUpdates))
     .filter((occurrence): occurrence is FlightOccurrence => occurrence !== null)
     .sort(byDepartureTime);
 
@@ -161,7 +172,7 @@ export function searchFlights(
     criteria.routeId,
     connection.destination.iata,
   )
-    .map((service) => buildOccurrence(service, criteria.returnDate, occupancy))
+    .map((service) => buildOccurrence(service, criteria.returnDate, occupancy, flightUpdates))
     .filter((occurrence): occurrence is FlightOccurrence => occurrence !== null)
     .sort(byDepartureTime);
 
@@ -237,6 +248,7 @@ export function suggestAlternativeDates(
   criteria: SearchCriteria,
   referenceDateISO: string = todayISO(),
   count = 3,
+  flightUpdates?: FlightUpdates,
 ): string[] {
   const connection = FLIGHT_CONNECTIONS.find((c) => c.id === criteria.routeId);
   if (!connection) return [];
@@ -251,7 +263,7 @@ export function suggestAlternativeDates(
   while (date <= horizonEnd && suggestions.length < count) {
     if (isOperatingDate(date)) {
       const hasCapacity = services.some((service) => {
-        const occurrence = buildOccurrence(service, date, occupancy);
+        const occurrence = buildOccurrence(service, date, occupancy, flightUpdates);
         return occurrence !== null && occurrence.availableSeats >= total;
       });
       if (hasCapacity) suggestions.push(date);
@@ -292,6 +304,7 @@ function isValidLegSummary(
   expectedOriginIata: string,
   expectedDestinationIata: string,
   fare: number,
+  flightUpdates?: FlightUpdates,
 ): leg is SelectedLegSummary {
   if (typeof leg !== 'object' || leg === null) return false;
   const summary = leg as Partial<SelectedLegSummary>;
@@ -302,8 +315,12 @@ function isValidLegSummary(
     return false;
   }
 
-  const service = SCHEDULED_SERVICES.find(
-    (candidate) => candidate.flightNumber === summary.flightNumber,
+  // CU-07: the leg must match the schedule in effect for its date —
+  // a selection captured before a schedule update is stale and rejected.
+  const service = scheduledServiceForDate(
+    summary.flightNumber,
+    flightUpdates,
+    expectedDate,
   );
   if (!service || service.routeId !== routeId) return false;
   if (
@@ -350,7 +367,10 @@ function isValidLegSummary(
  * dates, complete leg summaries at the connection fare, and a total price
  * equal to fare x 2 legs x passengers. Pure and side-effect free.
  */
-export function isValidSearchSelection(value: unknown): value is SearchSelection {
+export function isValidSearchSelection(
+  value: unknown,
+  flightUpdates?: FlightUpdates,
+): value is SearchSelection {
   if (typeof value !== 'object' || value === null) return false;
   const selection = value as Partial<SearchSelection>;
 
@@ -395,6 +415,7 @@ export function isValidSearchSelection(value: unknown): value is SearchSelection
       connection.origin.iata,
       connection.destination.iata,
       connection.farePerPassenger,
+      flightUpdates,
     ) ||
     !isValidLegSummary(
       selection.returnFlight,
@@ -403,6 +424,7 @@ export function isValidSearchSelection(value: unknown): value is SearchSelection
       connection.destination.iata,
       connection.origin.iata,
       connection.farePerPassenger,
+      flightUpdates,
     )
   ) {
     return false;

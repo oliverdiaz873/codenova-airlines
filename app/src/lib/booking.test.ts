@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DemoCustomer } from '@/data/customers';
 import { applyPurchaseConfirmation } from '@/lib/confirmPurchase';
+import { localDateTimeToUtc } from '@/lib/dates';
+import type { FlightUpdates } from '@/lib/flightUpdate';
 import {
   accrualDueMiles,
   buildPurchase,
@@ -575,5 +577,95 @@ describe('returnArrivalUtcMs invalid input protection (4.1.2)', () => {
     expect(purchases).toHaveLength(0);
     expect(custs).toHaveLength(1);
     expect(custs[0]).toEqual(minorista);
+  });
+});
+
+describe('CU-07 — purchase validation with schedule updates', () => {
+  // CN101 departs SDQ 2026-11-10 08:00; CN102 departs SJU 2026-11-16 10:30.
+  const cn101DepMs = localDateTimeToUtc(
+    '2026-11-10',
+    '08:00',
+    'America/Santo_Domingo',
+  ).getTime();
+  const updates: FlightUpdates = {
+    CN101: [
+      {
+        departureLocal: '09:30',
+        durationMinutes: 90,
+        effectiveAtMs: cn101DepMs - 1_000,
+      },
+    ],
+  };
+
+  function freshSelection(): SearchSelection {
+    const selection = makeSelection();
+    selection.outbound = {
+      ...selection.outbound,
+      departureTime: '09:30',
+      arrivalTime: '11:00',
+      durationMinutes: 90,
+    };
+    return selection;
+  }
+
+  it('rejects a stale selection captured before the update', () => {
+    expect(
+      validatePurchase(makeSelection(), oneSeat, 0, minorista, updates),
+    ).toBe('La información del vuelo cambió; realiza una nueva búsqueda.');
+    expect(
+      buildPurchase(makeSelection(), oneSeat, 0, minorista, 'CN-0001', updates),
+    ).toBeNull();
+  });
+
+  it('accepts a selection matching the updated schedule', () => {
+    expect(
+      validatePurchase(freshSelection(), oneSeat, 0, minorista, updates),
+    ).toBeNull();
+    const purchase = buildPurchase(
+      freshSelection(),
+      oneSeat,
+      0,
+      minorista,
+      'CN-0001',
+      updates,
+    );
+    expect(purchase).not.toBeNull();
+  });
+
+  it('keeps base behavior when no updates exist', () => {
+    expect(validatePurchase(makeSelection(), oneSeat, 0, minorista)).toBeNull();
+    expect(validatePurchase(makeSelection(), oneSeat, 0, minorista, {})).toBeNull();
+  });
+
+  it('returnArrivalUtcMs uses the resolved duration and departure', () => {
+    const cn102DepMs = localDateTimeToUtc(
+      '2026-11-16',
+      '10:30',
+      'America/Puerto_Rico',
+    ).getTime();
+    const returnUpdates: FlightUpdates = {
+      CN102: [
+        {
+          departureLocal: '12:00',
+          durationMinutes: 90,
+          effectiveAtMs: cn102DepMs - 1_000,
+        },
+      ],
+    };
+    // Fresh selection carries the updated departure; duration resolves
+    // from the schedule in effect: 12:00 SJU (UTC-4) + 90 min -> 17:30 UTC.
+    const selection = makeSelection();
+    selection.returnFlight = {
+      ...selection.returnFlight,
+      departureTime: '12:00',
+      durationMinutes: 90,
+    };
+    expect(returnArrivalUtcMs(selection, returnUpdates)).toBe(
+      Date.parse('2026-11-16T17:30:00.000Z'),
+    );
+    // Without updates the base schedule still applies.
+    expect(returnArrivalUtcMs(makeSelection())).toBe(
+      Date.parse('2026-11-16T15:45:00.000Z'),
+    );
   });
 });

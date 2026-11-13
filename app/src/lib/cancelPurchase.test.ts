@@ -9,6 +9,7 @@ import {
   refundBreakdown,
 } from '@/lib/cancelPurchase';
 import { localDateTimeToUtc } from '@/lib/dates';
+import type { FlightUpdates } from '@/lib/flightUpdate';
 import { userOccupiedSeats } from '@/lib/seatOccupancy';
 
 const OWNER = 'minorista@codenova.demo';
@@ -314,5 +315,76 @@ describe('applyPurchaseCancellation', () => {
     ).toBe(true);
     // finishEmailSend only completes PENDING confirmed purchases.
     expect(cancelled.status).not.toBe('confirmada');
+  });
+});
+
+describe('CU-07 — cancellation deadline with schedule updates', () => {
+  // CN101 departs SDQ 2026-11-09 08:00; update moves it to 12:00.
+  const cn101DepMs = localDateTimeToUtc(
+    '2026-11-09',
+    '08:00',
+    'America/Santo_Domingo',
+  ).getTime();
+  const updates: FlightUpdates = {
+    CN101: [
+      {
+        departureLocal: '12:00',
+        durationMinutes: 75,
+        effectiveAtMs: cn101DepMs - 1_000,
+      },
+    ],
+  };
+
+  it('computes the departure and deadline with the resolved schedule', () => {
+    const purchase = makePurchase();
+    const expectedDeparture = cn101DepMs + 4 * 60 * 60 * 1000;
+    expect(firstFlightDepartureUtcMs(purchase, updates)).toBe(expectedDeparture);
+    expect(cancelDeadlineUtcMs(purchase, updates)).toBe(
+      expectedDeparture - CANCELLATION_DEADLINE_HOURS * 60 * 60 * 1000,
+    );
+  });
+
+  it('extends eligibility when the flight moved later', () => {
+    const purchase = makePurchase();
+    // Two hours after the base deadline but before the updated one.
+    const nowMs = defaultDeadlineMs() + 2 * 60 * 60 * 1000;
+    expect(isCancellationEligible(purchase, nowMs)).toBe(false);
+    expect(isCancellationEligible(purchase, nowMs, updates)).toBe(true);
+    const result = applyPurchaseCancellation(
+      [purchase],
+      OWNER,
+      'CN-0001',
+      nowMs,
+      updates,
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('keeps the inclusive 168-hour boundary with the updated schedule', () => {
+    const purchase = makePurchase();
+    const updatedDeadline =
+      cn101DepMs +
+      4 * 60 * 60 * 1000 -
+      CANCELLATION_DEADLINE_HOURS * 60 * 60 * 1000;
+    expect(isCancellationEligible(purchase, updatedDeadline, updates)).toBe(true);
+    expect(
+      isCancellationEligible(purchase, updatedDeadline + 1, updates),
+    ).toBe(false);
+  });
+
+  it('keeps the historical deadline when the update postdates the flight', () => {
+    const purchase = makePurchase();
+    const late: FlightUpdates = {
+      CN101: [
+        {
+          departureLocal: '12:00',
+          durationMinutes: 75,
+          effectiveAtMs: cn101DepMs + 1_000,
+        },
+      ],
+    };
+    expect(cancelDeadlineUtcMs(purchase, late)).toBe(defaultDeadlineMs());
+    const nowMs = defaultDeadlineMs() + 2 * 60 * 60 * 1000;
+    expect(isCancellationEligible(purchase, nowMs, late)).toBe(false);
   });
 });

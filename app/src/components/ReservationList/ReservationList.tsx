@@ -14,7 +14,7 @@ import './ReservationList.css';
  * status. Each card links to the reservation detail.
  */
 export function ReservationList() {
-  const { purchases, activeCustomer } = useBooking();
+  const { purchases, activeCustomer, flightUpdates } = useBooking();
 
   const myPurchases = purchases.filter(
     (purchase) => purchase.customerEmail === activeCustomer?.email,
@@ -41,7 +41,7 @@ export function ReservationList() {
               <li key={purchase.code} className="reservation-list__item">
                 <div className="reservation-list__item-info">
                   <span className="reservation-list__item-route">
-                    {purchaseRouteLabel(purchase)}
+                    {purchaseRouteLabel(purchase, flightUpdates)}
                   </span>
                   <span className="reservation-list__item-meta">
                     {formatDateLong(purchaseFirstFlightDate(purchase))} ·{' '}

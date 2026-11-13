@@ -6,11 +6,19 @@ import type {
   ConfirmPurchaseResult,
 } from '@/lib/confirmPurchase';
 import type { CancelPurchaseResult } from '@/lib/cancelPurchase';
+import type { ScheduledService } from '@/data/scheduledServices';
+import type {
+  ApplyFlightUpdateResult,
+  FlightUpdateChanges,
+  FlightUpdates,
+} from '@/lib/flightUpdate';
 
 export interface BookingContextValue {
   customers: DemoCustomer[];
   activeCustomer: DemoCustomer | null;
   purchases: Purchase[];
+  /** CU-07: schedule update history keyed by flightNumber (memory only). */
+  flightUpdates: FlightUpdates;
   login: (customer: DemoCustomer) => void;
   register: (customer: DemoCustomer) => void;
   logout: () => void;
@@ -18,6 +26,14 @@ export interface BookingContextValue {
   sendConfirmationEmail: (code: string) => void;
   cancelPurchase: (code: string) => CancelPurchaseResult;
   syncAccrual: () => void;
+  updateFlightService: (
+    flightNumber: string,
+    changes: FlightUpdateChanges,
+  ) => ApplyFlightUpdateResult;
+  resolveService: (
+    flightNumber: string,
+    date: string,
+  ) => ScheduledService | undefined;
 }
 
 export const BookingContext = createContext<BookingContextValue | null>(null);

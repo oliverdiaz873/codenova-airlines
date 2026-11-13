@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import './Footer.css';
 
 export function Footer() {
@@ -25,6 +26,9 @@ export function Footer() {
             <a href="/" className="footer__link">Inicio</a>
             <a href="#destinations" className="footer__link">Destinos</a>
             <a href="#routes" className="footer__link">Vuelos</a>
+            <Link to="/agente" className="footer__link footer__link--agent">
+              Área del agente
+            </Link>
           </nav>
         </div>
 

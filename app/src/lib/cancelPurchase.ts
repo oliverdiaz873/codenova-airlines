@@ -12,9 +12,12 @@
  * cancellation changes nothing — purchase, seats and miles stay intact.
  */
 
-import { SCHEDULED_SERVICES } from '@/data/scheduledServices';
 import type { Purchase } from '@/lib/booking';
 import { localDateTimeToUtc } from '@/lib/dates';
+import {
+  scheduledServiceForDate,
+  type FlightUpdates,
+} from '@/lib/flightUpdate';
 
 /** Minimum anticipation before the first flight, in hours (approved CU-06). */
 export const CANCELLATION_DEADLINE_HOURS = 168;
@@ -29,13 +32,19 @@ const WALL_CLOCK_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
  * in the origin airport's IANA zone. Returns null — never throws — when
  * the flight or its data cannot produce a valid instant.
  */
-export function firstFlightDepartureUtcMs(purchase: Purchase): number | null {
+export function firstFlightDepartureUtcMs(
+  purchase: Purchase,
+  flightUpdates?: FlightUpdates,
+): number | null {
   const first = purchase.components.find(
     (component) => component.leg === 'ida',
   );
   if (!first) return null;
-  const service = SCHEDULED_SERVICES.find(
-    (candidate) => candidate.flightNumber === first.flightNumber,
+  // CU-07: the deadline uses the schedule in effect for the flight date.
+  const service = scheduledServiceForDate(
+    first.flightNumber,
+    flightUpdates,
+    first.date,
   );
   if (!service) return null;
   if (!WALL_CLOCK_TIME_PATTERN.test(service.departureLocal)) return null;
@@ -56,8 +65,11 @@ export function firstFlightDepartureUtcMs(purchase: Purchase): number | null {
  * CANCELLATION_DEADLINE_HOURS before the first flight departure. The
  * purchase is still eligible at this exact instant.
  */
-export function cancelDeadlineUtcMs(purchase: Purchase): number | null {
-  const departureMs = firstFlightDepartureUtcMs(purchase);
+export function cancelDeadlineUtcMs(
+  purchase: Purchase,
+  flightUpdates?: FlightUpdates,
+): number | null {
+  const departureMs = firstFlightDepartureUtcMs(purchase, flightUpdates);
   if (departureMs === null) return null;
   return departureMs - CANCELLATION_DEADLINE_HOURS * 60 * 60 * 1000;
 }
@@ -69,9 +81,10 @@ export function cancelDeadlineUtcMs(purchase: Purchase): number | null {
 export function isCancellationEligible(
   purchase: Purchase,
   nowMs: number,
+  flightUpdates?: FlightUpdates,
 ): boolean {
   if (purchase.status !== 'confirmada') return false;
-  const deadlineMs = cancelDeadlineUtcMs(purchase);
+  const deadlineMs = cancelDeadlineUtcMs(purchase, flightUpdates);
   return deadlineMs !== null && nowMs <= deadlineMs;
 }
 
@@ -116,6 +129,7 @@ export function applyPurchaseCancellation(
   activeEmail: string | null,
   code: string,
   nowMs: number,
+  flightUpdates?: FlightUpdates,
 ): CancelPurchaseResult {
   const purchase = purchases.find((candidate) => candidate.code === code);
   if (!purchase) {
@@ -133,7 +147,7 @@ export function applyPurchaseCancellation(
   if (purchase.status !== 'confirmada') {
     return { ok: false, error: 'Esta reservación no se puede cancelar.' };
   }
-  if (!isCancellationEligible(purchase, nowMs)) {
+  if (!isCancellationEligible(purchase, nowMs, flightUpdates)) {
     return {
       ok: false,
       error:

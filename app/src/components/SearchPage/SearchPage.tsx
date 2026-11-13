@@ -16,6 +16,7 @@ import {
   type FlightSearchResults,
   type SearchCriteria,
 } from '@/lib/flightSearch';
+import { useBooking } from '@/components/BookingProvider/useBooking';
 import './SearchPage.css';
 
 const today = todayISO();
@@ -123,6 +124,7 @@ function LegGroup({
  */
 export function SearchPage() {
   const navigate = useNavigate();
+  const { flightUpdates } = useBooking();
 
   const originOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -208,14 +210,14 @@ export function SearchPage() {
     }
     setError('');
     setCriteria(nextCriteria);
-    const searchResults = searchFlights(nextCriteria);
+    const searchResults = searchFlights(nextCriteria, todayISO(), flightUpdates);
     setResults(searchResults);
     setSelectedOutbound(null);
     setSelectedReturn(null);
     setSuggestions(
       searchResults.outbound.length === 0 ||
         searchResults.returnOptions.length === 0
-        ? suggestAlternativeDates(nextCriteria)
+        ? suggestAlternativeDates(nextCriteria, todayISO(), 3, flightUpdates)
         : [],
     );
   };

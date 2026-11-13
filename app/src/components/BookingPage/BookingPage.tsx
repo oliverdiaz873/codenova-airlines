@@ -71,15 +71,19 @@ export function BookingPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const rawSelection: unknown = location.state;
-  const selection: SearchSelection | null = isValidSearchSelection(rawSelection)
-    ? rawSelection
-    : null;
   const {
     purchases,
     confirmPurchase,
     syncAccrual,
     activeCustomer,
+    flightUpdates,
   } = useBooking();
+  const selection: SearchSelection | null = isValidSearchSelection(
+    rawSelection,
+    flightUpdates,
+  )
+    ? rawSelection
+    : null;
   const customer = activeCustomer;
   useAccrualSync();
 
@@ -305,6 +309,7 @@ export function BookingPage() {
       seatSelection,
       milesUsed,
       customer,
+      flightUpdates,
     );
     if (purchaseError) {
       setError(purchaseError);

@@ -8,6 +8,7 @@ import {
 } from '@/lib/confirmPurchase';
 import type { Purchase } from '@/lib/booking';
 import {
+  buildConfirmationEmail,
   EMAIL_SEND_DELAY_MS,
   finishEmailSend,
   shouldForceEmailFailure,
@@ -17,6 +18,11 @@ import {
   applyPurchaseCancellation,
   type CancelPurchaseResult,
 } from '@/lib/cancelPurchase';
+import {
+  createFlightUpdateOps,
+  type FlightUpdateChanges,
+  type FlightUpdates,
+} from '@/lib/flightUpdate';
 import { BookingContext, type BookingContextValue } from './useBooking';
 
 interface BookingState {
@@ -24,6 +30,8 @@ interface BookingState {
   /** Email of the simulated session; the customer is derived, never copied. */
   activeEmail: string | null;
   purchases: Purchase[];
+  /** CU-07: per-flightNumber schedule update history (memory only). */
+  flightUpdates: FlightUpdates;
 }
 
 /**
@@ -40,6 +48,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     customers: initialCustomers,
     activeEmail: null,
     purchases: [],
+    flightUpdates: {},
   };
   const [state, setState] = useState<BookingState>(initialState);
   const storeRef = useRef<BookingState>(initialState);
@@ -99,6 +108,8 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       storeRef.current.activeEmail,
       input,
       Date.now(),
+      undefined,
+      storeRef.current.flightUpdates,
     );
     if (!result.ok) return result;
     commit({
@@ -123,7 +134,18 @@ export function BookingProvider({ children }: { children: ReactNode }) {
         (candidate) => candidate.code === code,
       );
       if (!purchase || purchase.status !== 'confirmada') return;
-      const pending = startEmailSend(purchase);
+      // CU-07: the email content is frozen at the send attempt, resolved
+      // with the schedule in effect for each flight date — a later
+      // schedule update cannot alter what was (or will be) sent.
+      const recipientName = storeRef.current.customers.find(
+        (customer) => customer.email === purchase.customerEmail,
+      )?.name;
+      const content = buildConfirmationEmail(
+        purchase,
+        recipientName,
+        storeRef.current.flightUpdates,
+      );
+      const pending = startEmailSend(purchase, content);
       if (pending === purchase) return;
       commit({
         ...storeRef.current,
@@ -168,6 +190,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
         storeRef.current.activeEmail,
         code,
         Date.now(),
+        storeRef.current.flightUpdates,
       );
       if (!result.ok) return result;
       commit({
@@ -179,6 +202,35 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     [commit],
   );
 
+  /**
+   * CU-07: agent flight updates. The pure ops layer applies the atomic
+   * transition against the freshest store and commits only on success;
+   * resolveService reads the same store so every consumer shares one
+   * temporal source of truth.
+   */
+  const getFlightUpdates = useCallback(
+    () => storeRef.current.flightUpdates,
+    [],
+  );
+  const commitFlightUpdates = useCallback(
+    (flightUpdates: FlightUpdates) => {
+      commit({ ...storeRef.current, flightUpdates });
+    },
+    [commit],
+  );
+  const updateFlightService = useCallback(
+    (flightNumber: string, changes: FlightUpdateChanges) =>
+      createFlightUpdateOps(getFlightUpdates, commitFlightUpdates)
+        .updateFlightService(flightNumber, changes),
+    [getFlightUpdates, commitFlightUpdates],
+  );
+  const resolveService = useCallback(
+    (flightNumber: string, date: string) =>
+      createFlightUpdateOps(getFlightUpdates, commitFlightUpdates)
+        .resolveService(flightNumber, date),
+    [getFlightUpdates, commitFlightUpdates],
+  );
+
   const activeCustomer =
     state.customers.find((customer) => customer.email === state.activeEmail) ??
     null;
@@ -187,6 +239,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     customers: state.customers,
     activeCustomer,
     purchases: state.purchases,
+    flightUpdates: state.flightUpdates,
     login,
     register,
     logout,
@@ -194,6 +247,8 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     sendConfirmationEmail,
     cancelPurchase,
     syncAccrual,
+    updateFlightService,
+    resolveService,
   };
 
   return (

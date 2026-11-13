@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { localDateTimeToUtc } from '@/lib/dates';
+import type { FlightUpdates } from '@/lib/flightUpdate';
 import {
   buildSearchSelection,
   isValidSearchSelection,
@@ -253,5 +255,98 @@ describe('isValidSearchSelection — coherence with SCHEDULED_SERVICES', () => {
     const s = clone();
     s.outbound.arrivalNextDay = true; // real arrival is same-day
     expect(isValidSearchSelection(s)).toBe(false);
+  });
+});
+
+describe('CU-07 — schedule updates (flightUpdates)', () => {
+  const criteria: SearchCriteria = {
+    routeId: 'sdq-sju',
+    departureDate: '2026-11-09',
+    returnDate: '2026-11-11',
+    adults: 1,
+    children: 0,
+    infants: 0,
+  };
+  const cn101DepartureMs = localDateTimeToUtc(
+    '2026-11-09',
+    '08:00',
+    'America/Santo_Domingo',
+  ).getTime();
+  const updates: FlightUpdates = {
+    CN101: [
+      {
+        departureLocal: '09:30',
+        durationMinutes: 90,
+        effectiveAtMs: cn101DepartureMs - 1_000,
+      },
+    ],
+  };
+
+  it('shows the updated schedule for a future occurrence', () => {
+    const results = searchFlights(criteria, '2026-11-02', updates);
+    const cn101 = results.outbound.find(
+      (o) => o.service.flightNumber === 'CN101',
+    )!;
+    expect(cn101.departureTime).toBe('09:30');
+    expect(cn101.durationMinutes).toBe(90);
+    // 09:30 SDQ (UTC-4) + 90 min -> 11:00 SJU (UTC-4), same day.
+    expect(cn101.arrivalTime).toBe('11:00');
+    expect(cn101.arrivalNextDay).toBe(false);
+    // Untouched services keep their schedule.
+    const cn103 = results.outbound.find(
+      (o) => o.service.flightNumber === 'CN103',
+    )!;
+    expect(cn103.departureTime).toBe('17:00');
+    expect(cn103.durationMinutes).toBe(75);
+  });
+
+  it('keeps the base schedule when the update postdates the departure', () => {
+    const late: FlightUpdates = {
+      CN101: [
+        {
+          departureLocal: '09:30',
+          durationMinutes: 90,
+          effectiveAtMs: cn101DepartureMs + 1_000,
+        },
+      ],
+    };
+    const results = searchFlights(criteria, '2026-11-02', late);
+    const cn101 = results.outbound.find(
+      (o) => o.service.flightNumber === 'CN101',
+    )!;
+    expect(cn101.departureTime).toBe('08:00');
+    expect(cn101.durationMinutes).toBe(75);
+  });
+
+  it('still respects the operating days', () => {
+    const tuesday: SearchCriteria = {
+      ...criteria,
+      departureDate: '2026-11-10',
+    };
+    expect(
+      searchFlights(tuesday, '2026-11-02', updates).outbound,
+    ).toHaveLength(0);
+  });
+
+  it('validates a fresh selection and rejects the stale one', () => {
+    const results = searchFlights(criteria, '2026-11-02', updates);
+    const fresh = buildSearchSelection(
+      criteria,
+      results.outbound.find((o) => o.service.flightNumber === 'CN101')!,
+      results.returnOptions[0],
+    )!;
+    expect(isValidSearchSelection(fresh, updates)).toBe(true);
+    // The same selection is stale against the base schedule.
+    expect(isValidSearchSelection(fresh)).toBe(false);
+
+    // A selection captured before the update is stale with updates on.
+    const baseResults = searchFlights(criteria, '2026-11-02');
+    const stale = buildSearchSelection(
+      criteria,
+      baseResults.outbound[0],
+      baseResults.returnOptions[0],
+    )!;
+    expect(isValidSearchSelection(stale)).toBe(true);
+    expect(isValidSearchSelection(stale, updates)).toBe(false);
   });
 });

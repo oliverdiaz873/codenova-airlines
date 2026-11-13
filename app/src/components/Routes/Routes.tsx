@@ -1,26 +1,44 @@
 import { FLIGHT_CONNECTIONS, DAYS_OF_OPERATION, formatCurrency } from '@/data/flights';
 import { SCHEDULED_SERVICES } from '@/data/scheduledServices';
+import { serviceForNextOperatingDate } from '@/lib/flightUpdate';
+import { useBooking } from '@/components/BookingProvider/useBooking';
+import type { FlightUpdates } from '@/lib/flightUpdate';
 import './Routes.css';
 
 /**
- * Local departure times from the connection's origin airport, taken from
- * the approved scheduled services (PLAN 4.7). Filtering by origin.iata keeps
- * only outbound departures; return-direction times are excluded.
+ * Departure times from the connection's origin airport for the next
+ * operating date, resolved through the CU-07 temporal rules: services
+ * updated by the agent show their new schedule, while historical
+ * occurrences keep their original times.
  */
-function departuresLabel(routeId: string, originIata: string): string {
+function departuresLabel(
+  routeId: string,
+  originIata: string,
+  flightUpdates: FlightUpdates | undefined,
+  fromDateISO?: string,
+): string {
   const times = SCHEDULED_SERVICES.filter(
     (service) =>
       service.routeId === routeId && service.origin.iata === originIata,
   )
-    .map((service) => service.departureLocal)
+    .map(
+      (service) =>
+        serviceForNextOperatingDate(service, flightUpdates, fromDateISO)
+          .service.departureLocal,
+    )
     .sort();
   return times.length > 0 ? `Salidas ${times.join(' y ')}` : 'Horario por confirmar';
 }
 
 export function Routes() {
+  const { flightUpdates } = useBooking();
   const connections = FLIGHT_CONNECTIONS.map((connection) => ({
     ...connection,
-    scheduleLabel: departuresLabel(connection.id, connection.origin.iata),
+    scheduleLabel: departuresLabel(
+      connection.id,
+      connection.origin.iata,
+      flightUpdates,
+    ),
     badge: 'Vuelo directo',
   }));
 

@@ -8,7 +8,13 @@ import {
   type ConfirmPurchaseResult,
 } from '@/lib/confirmPurchase';
 import type { LegSeatSelection } from '@/lib/booking';
-import type { SearchSelection } from '@/lib/flightSearch';
+import { validatePurchase } from '@/lib/booking';
+import {
+  buildSearchSelection,
+  searchFlights,
+  type SearchSelection,
+} from '@/lib/flightSearch';
+import { applyFlightUpdate, type FlightUpdates } from '@/lib/flightUpdate';
 
 const corporate: DemoCustomer = {
   email: 'corporativo@codenova.demo',
@@ -471,5 +477,162 @@ describe('applyPurchaseConfirmation — reservation codes', () => {
     expect(success.ok).toBe(true);
     if (!success.ok) return;
     expect(success.purchase.code).toBe('CN-0001');
+  });
+});
+
+describe('CU-07 — schedule updates at confirmation', () => {
+  const cn101DepMs = Date.parse('2026-11-09T12:00:00.000Z'); // 08:00 SDQ (UTC-4)
+  const updates: FlightUpdates = {
+    CN101: [
+      {
+        departureLocal: '09:30',
+        durationMinutes: 90,
+        effectiveAtMs: cn101DepMs - 1_000,
+      },
+    ],
+  };
+
+  function freshSelection(): SearchSelection {
+    const selection = makeSelection();
+    selection.outbound = {
+      ...selection.outbound,
+      departureTime: '09:30',
+      arrivalTime: '11:00',
+      durationMinutes: 90,
+    };
+    return selection;
+  }
+
+  it('rejects a stale selection after a schedule update', () => {
+    const result = applyPurchaseConfirmation(
+      [],
+      customers,
+      corporate.email,
+      makeInput(undefined, 0, makeSelection()),
+      NOW,
+      REF,
+      updates,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('nueva búsqueda');
+  });
+
+  it('confirms a selection matching the updated schedule', () => {
+    const result = applyPurchaseConfirmation(
+      [],
+      customers,
+      corporate.email,
+      makeInput(undefined, 0, freshSelection()),
+      NOW,
+      REF,
+      updates,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.purchase.components[0].flightNumber).toBe('CN101');
+  });
+});
+
+describe('CU-07 regression — handleConfirm sequence with updated schedule', () => {
+  // Reproduces the real flow: agent update -> searchFlights ->
+  // buildSearchSelection -> BookingPage pre-validation (validatePurchase
+  // WITH flightUpdates) -> applyPurchaseConfirmation. Before the fix the
+  // pre-validation omitted flightUpdates and falsely rejected fresh
+  // selections.
+  const criteria = {
+    routeId: 'sdq-sju',
+    departureDate: '2026-11-09',
+    returnDate: '2026-11-16',
+    adults: 1,
+    children: 0,
+    infants: 0,
+  };
+
+  function updatesForCN101(): FlightUpdates {
+    const result = applyFlightUpdate(
+      {},
+      'CN101',
+      { departureLocal: '09:30', durationMinutes: 90 },
+      NOW,
+    );
+    if (!result.ok) throw new Error('setup: update should succeed');
+    return result.flightUpdates;
+  }
+
+  function selectFromSearch(
+    flightUpdates: FlightUpdates,
+  ): SearchSelection {
+    const results = searchFlights(criteria, REF, flightUpdates);
+    const outbound = results.outbound.find((o) => o.service.flightNumber === 'CN101');
+    const returnFlight = results.returnOptions.find(
+      (o) => o.service.flightNumber === 'CN102',
+    );
+    if (!outbound || !returnFlight) throw new Error('setup: occurrences missing');
+    const selection = buildSearchSelection(criteria, outbound, returnFlight);
+    if (!selection) throw new Error('setup: selection should build');
+    return selection;
+  }
+
+  it('confirms a selection searched after the update (no false rejection)', () => {
+    const flightUpdates = updatesForCN101();
+    const selection = selectFromSearch(flightUpdates);
+    expect(selection.outbound.departureTime).toBe('09:30');
+    expect(selection.outbound.durationMinutes).toBe(90);
+
+    // Same sequence as handleConfirm: pre-validation then atomic confirm.
+    expect(
+      validatePurchase(selection, { outbound: ['5A'], return: ['5B'] }, 0, corporate, flightUpdates),
+    ).toBeNull();
+    const result = applyPurchaseConfirmation(
+      [],
+      customers,
+      corporate.email,
+      makeInput({ outbound: ['5A'], return: ['5B'] }, 0, selection),
+      NOW,
+      REF,
+      flightUpdates,
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('still rejects a genuinely stale selection', () => {
+    const flightUpdates = updatesForCN101();
+    // Selection captured with the base schedule (searched before the update).
+    const stale = selectFromSearch({});
+    expect(stale.outbound.departureTime).toBe('08:00');
+
+    expect(
+      validatePurchase(stale, { outbound: ['5A'], return: ['5B'] }, 0, corporate, flightUpdates),
+    ).toBe('La información del vuelo cambió; realiza una nueva búsqueda.');
+    const result = applyPurchaseConfirmation(
+      [],
+      customers,
+      corporate.email,
+      makeInput({ outbound: ['5A'], return: ['5B'] }, 0, stale),
+      NOW,
+      REF,
+      flightUpdates,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('nueva búsqueda');
+  });
+
+  it('unmodified flights still confirm without overrides', () => {
+    const selection = selectFromSearch({});
+    expect(
+      validatePurchase(selection, { outbound: ['5A'], return: ['5B'] }, 0, corporate, {}),
+    ).toBeNull();
+    const result = applyPurchaseConfirmation(
+      [],
+      customers,
+      corporate.email,
+      makeInput({ outbound: ['5A'], return: ['5B'] }, 0, selection),
+      NOW,
+      REF,
+      {},
+    );
+    expect(result.ok).toBe(true);
   });
 });

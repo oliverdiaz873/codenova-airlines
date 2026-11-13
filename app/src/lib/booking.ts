@@ -11,7 +11,7 @@
  */
 
 import { distanceMilesForRoute } from '@/data/routeDistances';
-import { SCHEDULED_SERVICES } from '@/data/scheduledServices';
+import { scheduledServiceForDate, type FlightUpdates } from '@/lib/flightUpdate';
 import { isValidSeatId } from '@/data/seatMap';
 import type { DemoCustomer } from '@/data/customers';
 import { isValidISODate, localDateTimeToUtc } from '@/lib/dates';
@@ -21,6 +21,7 @@ import {
   validateRedemptionMiles,
 } from '@/lib/miles';
 import type { PassengerCounts, SearchSelection } from '@/lib/flightSearch';
+import type { ConfirmationEmail } from '@/lib/confirmationEmail';
 
 export type PassengerKind = 'adult' | 'child' | 'infant';
 
@@ -68,6 +69,12 @@ export interface Purchase {
   status: PurchaseStatus;
   /** CU-05: simulated email state; absent until the send process runs. */
   confirmationEmailStatus?: ConfirmationEmailStatus;
+  /**
+   * CU-07: frozen snapshot of the confirmation email content captured at
+   * the send attempt. Once stored it is never rebuilt — a later schedule
+   * update cannot alter what the email showed.
+   */
+  confirmationEmailContent?: ConfirmationEmail;
   /** CU-06: instant (ms) of cancellation; set only when status is 'cancelada'. */
   cancelledAtMs?: number;
   /** CU-06: simulated refund registered at cancellation (80 % of netTotal). */
@@ -108,16 +115,22 @@ const LOCAL_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
  * Returns NaN — never throws — when the flight, date or time cannot produce
  * a valid instant; buildPurchase rejects non-finite results.
  */
-export function returnArrivalUtcMs(selection: SearchSelection): number {
+export function returnArrivalUtcMs(
+  selection: SearchSelection,
+  flightUpdates?: FlightUpdates,
+): number {
   const leg = selection?.returnFlight;
   if (typeof leg !== 'object' || leg === null) return Number.NaN;
-  const service = SCHEDULED_SERVICES.find(
-    (candidate) => candidate.flightNumber === leg.flightNumber,
-  );
-  if (!service) return Number.NaN;
   if (typeof leg.date !== 'string' || !isValidISODate(leg.date)) {
     return Number.NaN;
   }
+  // CU-07: arrival derives from the schedule in effect for the leg date.
+  const service = scheduledServiceForDate(
+    leg.flightNumber,
+    flightUpdates,
+    leg.date,
+  );
+  if (!service) return Number.NaN;
   if (
     typeof leg.departureTime !== 'string' ||
     !LOCAL_TIME_PATTERN.test(leg.departureTime)
@@ -153,6 +166,7 @@ export function validatePurchase(
   seats: LegSeatSelection,
   milesUsed: number,
   customer: DemoCustomer,
+  flightUpdates?: FlightUpdates,
 ): string | null {
   // Structural guards (4.1.1): a degenerate or manipulated selection is
   // rejected here even when the caller skips the CU-03 boundary check.
@@ -193,11 +207,15 @@ export function validatePurchase(
   ) {
     return 'Las tarifas del itinerario no son válidas.';
   }
-  const outboundService = SCHEDULED_SERVICES.find(
-    (service) => service.flightNumber === outbound.flightNumber,
+  const outboundService = scheduledServiceForDate(
+    outbound.flightNumber,
+    flightUpdates,
+    outbound.date,
   );
-  const returnService = SCHEDULED_SERVICES.find(
-    (service) => service.flightNumber === returnFlight.flightNumber,
+  const returnService = scheduledServiceForDate(
+    returnFlight.flightNumber,
+    flightUpdates,
+    returnFlight.date,
   );
   if (!outboundService || !returnService) {
     return 'Uno de los vuelos no existe en la programación.';
@@ -207,6 +225,16 @@ export function validatePurchase(
     returnFlight.date !== selection.returnDate
   ) {
     return 'Las fechas de los vuelos no coinciden con la selección.';
+  }
+  // CU-07: the selection must match the schedule in effect for each leg
+  // date — a selection captured before a schedule update is stale.
+  if (
+    outbound.departureTime !== outboundService.departureLocal ||
+    outbound.durationMinutes !== outboundService.durationMinutes ||
+    returnFlight.departureTime !== returnService.departureLocal ||
+    returnFlight.durationMinutes !== returnService.durationMinutes
+  ) {
+    return 'La información del vuelo cambió; realiza una nueva búsqueda.';
   }
   if (
     typeof seats !== 'object' ||
@@ -259,8 +287,9 @@ export function buildPurchase(
   milesUsed: number,
   customer: DemoCustomer,
   code: string,
+  flightUpdates?: FlightUpdates,
 ): Purchase | null {
-  if (validatePurchase(selection, seats, milesUsed, customer) !== null) {
+  if (validatePurchase(selection, seats, milesUsed, customer, flightUpdates) !== null) {
     return null;
   }
 
@@ -307,7 +336,7 @@ export function buildPurchase(
       ? computeAccruedMiles(distance, selection.totalPassengers)
       : 0;
 
-  const arrivalMs = returnArrivalUtcMs(selection);
+  const arrivalMs = returnArrivalUtcMs(selection, flightUpdates);
   if (!Number.isFinite(arrivalMs)) {
     return null;
   }

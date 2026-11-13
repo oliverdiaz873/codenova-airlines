@@ -19,6 +19,7 @@ import {
   type Purchase,
 } from '@/lib/booking';
 import type { SearchSelection } from '@/lib/flightSearch';
+import type { FlightUpdates } from '@/lib/flightUpdate';
 import {
   demoOccupiedSeats,
   userOccupiedSeats,
@@ -93,6 +94,7 @@ export function applyPurchaseConfirmation(
   input: ConfirmPurchaseInput,
   nowMs: number,
   referenceDateISO: string = todayISO(),
+  flightUpdates?: FlightUpdates,
 ): ConfirmPurchaseResult {
   if (typeof input !== 'object' || input === null) {
     return { ok: false, error: 'Los datos de la compra no son válidos.' };
@@ -123,6 +125,7 @@ export function applyPurchaseConfirmation(
     input.seats,
     input.milesUsed,
     customer,
+    flightUpdates,
   );
   if (purchaseError) return { ok: false, error: purchaseError };
 
@@ -133,6 +136,7 @@ export function applyPurchaseConfirmation(
     input.milesUsed,
     customer,
     code,
+    flightUpdates,
   );
   if (!purchase) {
     return { ok: false, error: 'No se pudo construir la compra.' };

@@ -19,6 +19,7 @@ import { SearchPage } from '@/components/SearchPage/SearchPage';
 import { BookingPage } from '@/components/BookingPage/BookingPage';
 import { BookingConfirmation } from '@/components/BookingConfirmation/BookingConfirmation';
 import { ReservationDetail } from '@/components/ReservationDetail/ReservationDetail';
+import { AgentPanel } from '@/components/AgentPanel/AgentPanel';
 import { ReservationList } from '@/components/ReservationList/ReservationList';
 import { BookingProvider } from '@/components/BookingProvider/BookingProvider';
 import { useBooking } from '@/components/BookingProvider/useBooking';
@@ -83,6 +84,8 @@ function AppRoutes() {
               element={<BookingConfirmation />}
             />
           </Route>
+          {/* CU-07 (C-1.7): simulated agent area — no real authentication. */}
+          <Route path="/agente" element={<AgentPanel />} />
           {/* CU-04 (C-1.5): /reservar renders its own guest gate; it is not
               wrapped in RequireCustomer so visitors see the account notice
               instead of a bare redirect. */}

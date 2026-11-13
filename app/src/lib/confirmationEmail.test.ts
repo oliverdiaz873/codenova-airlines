@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { initialCustomers, type DemoCustomer } from '@/data/customers';
 import type { Purchase } from '@/lib/booking';
+import type { FlightUpdates } from '@/lib/flightUpdate';
 import {
   buildConfirmationEmail,
   finishEmailSend,
@@ -299,5 +300,101 @@ describe('buildConfirmationEmail', () => {
     expect(email.discountApplied).toBe(1_000);
     expect(email.grossTotal).toBe(31_600);
     expect(email.netTotal).toBe(30_600);
+  });
+});
+
+describe('CU-07 — email content snapshot and schedule resolution', () => {
+  const cn101DepMs = Date.parse('2026-11-09T12:00:00.000Z'); // 08:00 SDQ
+  const updates: FlightUpdates = {
+    CN101: [
+      {
+        departureLocal: '09:30',
+        durationMinutes: 90,
+        effectiveAtMs: cn101DepMs - 1_000,
+      },
+    ],
+  };
+
+  it('builds the email with the base schedule without updates', () => {
+    const email = buildConfirmationEmail(basePurchase);
+    expect(email.legs[0].departureTime).toBe('08:00');
+  });
+
+  it('builds the email with the resolved schedule after an update', () => {
+    const email = buildConfirmationEmail(basePurchase, undefined, updates);
+    expect(email.legs[0].departureTime).toBe('09:30');
+    // The untouched return leg keeps its base schedule.
+    expect(email.legs[1].departureTime).toBe('10:30');
+  });
+
+  it('keeps the historical schedule for a flight that already departed', () => {
+    const late: FlightUpdates = {
+      CN101: [
+        {
+          departureLocal: '09:30',
+          durationMinutes: 90,
+          effectiveAtMs: cn101DepMs + 1_000,
+        },
+      ],
+    };
+    const email = buildConfirmationEmail(basePurchase, undefined, late);
+    expect(email.legs[0].departureTime).toBe('08:00');
+  });
+
+  it('stores the content snapshot when the send starts', () => {
+    const content = buildConfirmationEmail(basePurchase, undefined, updates);
+    const pending = startEmailSend(basePurchase, content);
+    expect(pending.confirmationEmailStatus).toBe('PENDING');
+    expect(pending.confirmationEmailContent).toBe(content);
+    expect(pending.confirmationEmailContent?.legs[0].departureTime).toBe(
+      '09:30',
+    );
+  });
+
+  it('preserves the snapshot through SENT and FAILED', () => {
+    const content = buildConfirmationEmail(basePurchase, undefined, updates);
+    const pending = startEmailSend(basePurchase, content);
+    const sent = finishEmailSend(pending, false);
+    expect(sent.confirmationEmailStatus).toBe('SENT');
+    expect(sent.confirmationEmailContent?.legs[0].departureTime).toBe('09:30');
+
+    const failed = finishEmailSend(pending, true);
+    expect(failed.confirmationEmailStatus).toBe('FAILED');
+    expect(failed.confirmationEmailContent?.legs[0].departureTime).toBe('09:30');
+  });
+
+  it('freezes the content: later schedule updates cannot alter it', () => {
+    const content = buildConfirmationEmail(basePurchase, undefined, updates);
+    const sent = finishEmailSend(startEmailSend(basePurchase, content), false);
+    // A second, different schedule update exists afterwards.
+    const later: FlightUpdates = {
+      CN101: [
+        ...updates.CN101!,
+        {
+          departureLocal: '14:00',
+          durationMinutes: 100,
+          effectiveAtMs: cn101DepMs + 2_000,
+        },
+      ],
+    };
+    const rebuilt = buildConfirmationEmail(sent, undefined, later);
+    expect(rebuilt.legs[0].departureTime).toBe('14:00');
+    // The stored snapshot still shows what the email contained.
+    expect(sent.confirmationEmailContent?.legs[0].departureTime).toBe('09:30');
+  });
+
+  it('does not overwrite an existing snapshot on repeated sends', () => {
+    const first = buildConfirmationEmail(basePurchase);
+    const pending = startEmailSend(basePurchase, first);
+    const second = buildConfirmationEmail(basePurchase, undefined, updates);
+    const again = startEmailSend(pending, second);
+    expect(again).toBe(pending);
+    expect(again.confirmationEmailContent?.legs[0].departureTime).toBe('08:00');
+  });
+
+  it('allows PENDING without a snapshot (live preview fallback)', () => {
+    const pending = startEmailSend(basePurchase);
+    expect(pending.confirmationEmailStatus).toBe('PENDING');
+    expect(pending.confirmationEmailContent).toBeUndefined();
   });
 });

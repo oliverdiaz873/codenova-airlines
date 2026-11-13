@@ -1,0 +1,141 @@
+/* ---------- Agent panel (CU-07) ---------- */
+.agent {
+  padding: var(--space-2xl) 0;
+}
+
+.agent__header {
+  max-width: 40rem;
+  margin-bottom: var(--space-xl);
+}
+
+.agent__eyebrow {
+  display: inline-block;
+  margin-bottom: var(--space-sm);
+  color: var(--cn-blue-500, #1456a0);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.agent__title {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.agent__subtitle {
+  margin-top: var(--space-sm);
+  color: var(--cn-gray-600);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.agent__exit {
+  display: inline-block;
+  margin-top: var(--space-md);
+  color: var(--cn-blue-500, #1456a0);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.agent__card {
+  max-width: 36rem;
+  padding: var(--space-xl);
+  background: #fff;
+  border: 1px solid var(--cn-gray-100);
+  border-radius: 1rem;
+}
+
+.agent__section-title {
+  margin: var(--space-lg) 0 var(--space-sm);
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.agent__section-title:first-of-type {
+  margin-top: 0;
+}
+
+.agent__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: var(--space-md);
+}
+
+.agent__field-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cn-gray-700);
+}
+
+.agent__select,
+.agent__input {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--cn-gray-200, #d3d8dc);
+  border-radius: 0.5rem;
+  font: inherit;
+  background: #fff;
+}
+
+.agent__select {
+  width: 100%;
+}
+
+.agent__info {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.agent__info-row {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: var(--space-md);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--cn-gray-100);
+}
+
+.agent__info-row dt {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cn-gray-600);
+}
+
+.agent__info-row dd {
+  font-size: 0.9375rem;
+}
+
+.agent__form {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+.agent__hint {
+  color: var(--cn-gray-600);
+  font-size: 0.9375rem;
+}
+
+.agent__message {
+  margin: var(--space-md) 0;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.agent__message--success {
+  background: #e8f7ee;
+  color: #1b6b3a;
+  border: 1px solid #bfe6cd;
+}
+
+.agent__message--error {
+  background: #fdf3e7;
+  color: #8a4b08;
+  border: 1px solid #f0d3a8;
+}
+
+.agent__save {
+  margin-top: var(--space-sm);
+}

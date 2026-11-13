@@ -11,8 +11,12 @@
  */
 
 import { FLIGHT_CONNECTIONS } from '@/data/flights';
-import { SCHEDULED_SERVICES } from '@/data/scheduledServices';
+import type { ScheduledService } from '@/data/scheduledServices';
 import type { DemoCustomer } from '@/data/customers';
+import {
+  scheduledServiceForDate,
+  type FlightUpdates,
+} from '@/lib/flightUpdate';
 import {
   PASSENGER_KIND_LABELS,
   type BookingComponent,
@@ -48,9 +52,16 @@ export function simulateEmailDelivery(forceFailure = false): 'SENT' | 'FAILED' {
  * has any email status (PENDING in flight, SENT or FAILED) is returned
  * unchanged, so repeated triggers never restart the process.
  */
-export function startEmailSend(purchase: Purchase): Purchase {
+export function startEmailSend(
+  purchase: Purchase,
+  content?: ConfirmationEmail,
+): Purchase {
   if (purchase.confirmationEmailStatus !== undefined) return purchase;
-  return { ...purchase, confirmationEmailStatus: 'PENDING' };
+  return {
+    ...purchase,
+    confirmationEmailStatus: 'PENDING',
+    ...(content ? { confirmationEmailContent: content } : {}),
+  };
 }
 
 /**
@@ -145,6 +156,7 @@ function airportLabel(airport: { city: string; iata: string }): string {
 export function buildConfirmationEmail(
   purchase: Purchase,
   recipientName?: string,
+  flightUpdates?: FlightUpdates,
 ): ConfirmationEmail {
   const connection = FLIGHT_CONNECTIONS.find(
     (candidate) => candidate.id === purchase.routeId,
@@ -173,9 +185,12 @@ export function buildConfirmationEmail(
   const legs: EmailLeg[] = LEG_ORDER.map((leg) => {
     const components = legComponents(purchase, leg);
     const first = components[0];
-    const service = first
-      ? SCHEDULED_SERVICES.find(
-          (candidate) => candidate.flightNumber === first.flightNumber,
+    // CU-07: the email shows the schedule in effect for the flight date.
+    const service: ScheduledService | undefined = first
+      ? scheduledServiceForDate(
+          first.flightNumber,
+          flightUpdates,
+          first.date,
         )
       : undefined;
     // Each leg shows the direction of its own flight: the scheduled

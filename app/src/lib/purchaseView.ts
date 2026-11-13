@@ -7,7 +7,11 @@
  */
 
 import { FLIGHT_CONNECTIONS } from '@/data/flights';
-import { SCHEDULED_SERVICES } from '@/data/scheduledServices';
+import type { ScheduledService } from '@/data/scheduledServices';
+import {
+  scheduledServiceForDate,
+  type FlightUpdates,
+} from '@/lib/flightUpdate';
 import {
   PASSENGER_KIND_LABELS,
   type BookingComponent,
@@ -68,7 +72,7 @@ function passengerLabel(component: BookingComponent): string {
 function legRouteLabel(
   purchase: Purchase,
   leg: PurchaseLeg,
-  service: (typeof SCHEDULED_SERVICES)[number] | undefined,
+  service: ScheduledService | undefined,
 ): string {
   if (service) {
     return `${airportLabel(service.origin)} → ${airportLabel(service.destination)}`;
@@ -83,13 +87,19 @@ function legRouteLabel(
 }
 
 /** Ordered itinerary of the purchase: one view per leg present. */
-export function purchaseLegs(purchase: Purchase): PurchaseLegView[] {
+export function purchaseLegs(
+  purchase: Purchase,
+  flightUpdates?: FlightUpdates,
+): PurchaseLegView[] {
   return LEG_ORDER.map((leg) => {
     const components = legComponents(purchase, leg);
     const first = components[0];
+    // CU-07: times resolve against the schedule in effect for the leg date.
     const service = first
-      ? SCHEDULED_SERVICES.find(
-          (candidate) => candidate.flightNumber === first.flightNumber,
+      ? scheduledServiceForDate(
+          first.flightNumber,
+          flightUpdates,
+          first.date,
         )
       : undefined;
 
@@ -135,8 +145,13 @@ export function purchaseLegs(purchase: Purchase): PurchaseLegView[] {
 }
 
 /** Route label of the whole trip, from the first (ida) leg. */
-export function purchaseRouteLabel(purchase: Purchase): string {
-  const firstLeg = purchaseLegs(purchase).find((view) => view.leg === 'ida');
+export function purchaseRouteLabel(
+  purchase: Purchase,
+  flightUpdates?: FlightUpdates,
+): string {
+  const firstLeg = purchaseLegs(purchase, flightUpdates).find(
+    (view) => view.leg === 'ida',
+  );
   return firstLeg?.routeLabel ?? purchase.routeId;
 }
 
