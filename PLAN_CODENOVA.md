@@ -3,10 +3,10 @@
 **Proyecto:** CodeNova Airlines — Prototipo frontend de reserva de vuelos
 **Asignatura:** INF-3290
 **Tipo de documento:** Plan funcional y estado del proyecto (documento único)
-**Versión:** 2.11 — Estado de CU-04 y composición de la landing
+**Versión:** 2.12 — Ajustes de CU-02 y CU-03 según casos de uso y escenarios (propuesta en revisión)
 **Fecha de cierre:** 2026-11-06
-**Última actualización:** 2026-11-12
-**Estado:** Planificación funcional **CERRADA**. C-1, C-2 y C-3 resueltas; las reglas de CU-03 y CU-04 están aprobadas (3.9, 4.4, 4.7, 5.2) y **ambas tienen prototipo implementado y publicado**: rutas `/panel`, `/buscar`, `/reservar` —con aviso de cuenta para Visitantes (C-1.5)— y `/confirmacion`, protección de sesión, retorno contextual, disponibilidad ficticia determinista, mapa de 30 asientos, millas corporativas y confirmación atómica de la compra. Permanecen pendientes CU-05 (correo de confirmación simulado), CU-06 (cancelación), el panel del Agente, la cancelación parcial y la combinación de conexiones (4.8, 9.4).
+**Última actualización:** 2026-11-14
+**Estado:** Planificación funcional **CERRADA**. C-1, C-2 y C-3 resueltas; las reglas de CU-03 y CU-04 están aprobadas (3.9, 4.4, 4.7, 5.2) y **ambas tienen prototipo implementado y publicado**: rutas `/panel`, `/buscar`, `/reservar` —con aviso de cuenta para Visitantes (C-1.5)— y `/confirmacion`, protección de sesión, retorno contextual, disponibilidad ficticia determinista, mapa de 30 asientos, millas corporativas y confirmación atómica de la compra. CU-05 (correo de confirmación simulado), CU-06 (cancelación) y CU-07 (panel del Agente en `/agente`) también están implementados. La versión 2.12 propone completar CU-02 con dirección y teléfono y añadir a CU-03 el filtro por hora de partida y la lista completa de destinos. Permanecen pendientes la cancelación parcial y la combinación de conexiones (4.8, 9.4).
 
 ---
 
@@ -39,13 +39,13 @@
 | Arquitectura feature-based | **[E]** Vigente; estructura interna **[R]** |
 | Stack React + Vite + TypeScript | **[E]** Aprobado; no autoriza inicialización |
 | Diseño visual | Landing implementada como prototipo; la sección ExperienceSection quedó aprobada en revisión visual (10.5) |
-| Implementación | Frontend prototipo publicado: landing pública (Hero, Destinations, Routes, ExperienceSection), flujo `/ingresar`, panel `/panel`, CU-03 en `/buscar`, CU-04 en `/reservar` con aviso de cuenta y `/confirmacion` |
-| Funcionalidad pendiente | CU-05 (correo de confirmación simulado), CU-06 (cancelación), panel del Agente, y otros alcances excluidos |
+| Implementación | Frontend prototipo publicado: landing pública (Hero, Destinations, Routes, ExperienceSection), flujo `/ingresar`, panel `/panel`, CU-03 en `/buscar`, CU-04 en `/reservar` con aviso de cuenta y `/confirmacion`, CU-05 (correo simulado en `/confirmacion`), CU-06 en `/panel/reservas` y CU-07 en `/agente` |
+| Funcionalidad pendiente | Cancelación parcial, combinación de conexiones y otros alcances excluidos |
 | Datos de vuelos y mapa | 20 servicios ficticios y mapa 10 × 3 aprobados e implementados (4.4, 4.7) |
 | Millas CU-04 | Reglas cerradas e implementadas: acumulación, canje, titularidad corporativa y confirmación atómica (5.2) |
 | Pendientes operativos | Cancelación parcial y combinación de conexiones (4.8, 9.4) |
 
-**Próxima etapa:** continuar la revisión visual de la landing registrando solo los cambios aprobados. CU-05, CU-06 y el panel del Agente permanecen pendientes; su planificación y desarrollo requieren autorización expresa.
+**Próxima etapa:** revisar y aprobar los ajustes de la versión 2.12 (CU-02 y CU-03) y continuar la revisión visual registrando solo los cambios aprobados.
 
 ---
 
@@ -185,6 +185,7 @@ CU-01 es la única función de la landing pública. CU-03 se ejecuta en `/buscar
 - Ambos comparten **el mismo panel y las mismas funcionalidades**.
 - La clasificación se declara en el registro (CU-02).
 - El **nombre de la compañía** se solicita para clientes corporativos.
+- El formulario de CU-02 solicita además **nombre, dirección, teléfono y correo electrónico**, como indican los casos de uso (Paso 3.2) y los escenarios (Paso 5). Si falta algún dato, el sistema señala los campos incompletos y el registro no finaliza (escenario alternativo 3). El teléfono requiere al menos 10 dígitos. **[R]** Propuesta v2.12.
 - No se crean flujos, permisos ni pantallas distintos por clasificación.
 
 ### 3.5 Confirmación y correo simulado
@@ -324,7 +325,7 @@ La interfaz muestra un aviso discreto: **«Esta es una demostración. Los datos 
 - **Acceso:** CU-03 es exclusivo para Clientes registrados con sesión activa. Un Visitante no puede buscar; si intenta acceder, se dirige a `/ingresar` y recibe el aviso y enlace de registro previstos en C-1 (3.8).
 - **Retorno contextual:** si el Cliente inició el ingreso o registro al intentar abrir CU-03, al completar ese flujo regresa a la búsqueda. Si accede desde el header, entra al panel del Cliente.
 - **Trayecto:** la búsqueda es exclusivamente de ida y vuelta. El vuelo de regreso debe usar la misma conexión en sentido inverso al vuelo de ida. No se combinan rutas ni conexiones distintas.
-- **Criterios:** el Cliente selecciona origen, destino, fecha de ida, fecha de regreso y cantidad por tipo de pasajero. Solo se ofrecen las conexiones y servicios directos aprobados en PA-2 (4.1, 4.3, 4.7); los horarios se interpretan con las zonas IANA según cada fecha (4.7.1).
+- **Criterios:** el Cliente selecciona origen, destino, **hora de partida**, fecha de ida, fecha de regreso y cantidad por tipo de pasajero. La lista de destinos muestra todos los destinos de la red; si el destino elegido se opera desde otro origen, el origen se ajusta automáticamente. La hora de partida se elige por franja (cualquier hora, mañana 05:00–11:59, tarde 12:00–17:59, noche 18:00–04:59, hora local del origen) y se aplica al vuelo de ida. Si ningún vuelo coincide, se informa que no existen vuelos coincidentes y el Cliente puede cambiar los criterios (Paso 5, CU-03, escenario alternativo 1). **[R]** Propuesta v2.12. Solo se ofrecen las conexiones y servicios directos aprobados en PA-2 (4.1, 4.3, 4.7); los horarios se interpretan con las zonas IANA según cada fecha (4.7.1).
 - **Fechas:** se mantiene el horizonte de los próximos 30 días y los días de operación aprobados en PA-2 (4.3). La fecha de regreso no puede ser anterior a la de ida.
 - **Pasajeros:** se admiten hasta 30 pasajeros en total por búsqueda, incluidos los infantes. Debe haber al menos un pasajero. Ambos vuelos deben tener disponibilidad suficiente para el grupo completo.
 - **Disponibilidad:** los datos son ficticios y deterministas: cada ocurrencia sin reservas de demostración comienza con 30 plazas, y las reservas de demostración descuentan las plazas correspondientes. La disponibilidad es independiente por vuelo y fecha, y se restablece al recargar la página (4.4). CU-03 solo la muestra; no retiene plazas.
@@ -969,7 +970,8 @@ Las decisiones funcionales de 3.7, 3.8, 4.8 y 5.2 están cerradas y no forman pa
 | 09/11/2026 | **Versión 2.9 —** Reglas de millas de CU-04 cerradas: D-1 acreditación tras ida y vuelta con acreditación perezosa por fecha; D-2 distancias ficticias por trayecto en 4.7.2; D-3 todos los pasajeros generan millas a la cuenta titular; D-4 titularidad exclusiva, uso en reservas propias y sin transferencias; D-6 canje opcional sobre el total. Las distancias dejan de ser pendientes (4.8.9, 9.4) | Aprobación explícita de Oliver |
 | 09/11/2026 | **Versión 2.10 —** Precisión de D-1: una compra cancelada antes de la finalización del viaje no completa el viaje y no acredita millas. Sin cambios en D-5 ni en PA-5 | Aprobación explícita de Oliver |
 | 12/11/2026 | **Versión 2.11 —** Estado actualizado: CU-04 implementado y publicado en `ac7801f` (`/reservar` con aviso de cuenta para Visitantes y `/confirmacion`); composición vigente de la landing documentada (Hero → Destinations → Routes → ExperienceSection → Footer), con horarios de salida en las tarjetas derivados de 4.7 y las estadísticas 5 conexiones / 60 salidas semanales; aprobación visual de ExperienceSection registrada (10.5). CU-05, CU-06 y el panel del Agente permanecen pendientes | Implementación y estado del repositorio |
+| 14/11/2026 | **Versión 2.12 —** Estado actualizado: CU-05, CU-06 y CU-07 ya están implementados. Propuesta: CU-02 solicita dirección y teléfono con validación de datos incompletos (3.4); CU-03 añade el filtro por hora de partida y la lista completa de destinos (3.9); aviso de «información no disponible» en la landing (CU-01, escenario alternativo 1) | **Pendiente de revisión de Oliver** (propuesta de Oscar Amparo) |
 
 ---
 
-**Fin del documento.** Planificación funcional cerrada. C-1, C-2 y C-3 resueltas; CU-03 y CU-04 implementados como prototipo publicado (búsqueda `/buscar`, reserva `/reservar` con aviso de cuenta, confirmación `/confirmacion`, panel `/panel`); los 20 servicios ficticios, el mapa 10 × 3 y las reglas de millas están aprobados e implementados. Permanecen pendientes CU-05, CU-06, el panel del Agente, la cancelación parcial y la combinación de conexiones (4.8.9, 9.4).
+**Fin del documento.** Planificación funcional cerrada. C-1, C-2 y C-3 resueltas; CU-03 y CU-04 implementados como prototipo publicado (búsqueda `/buscar`, reserva `/reservar` con aviso de cuenta, confirmación `/confirmacion`, panel `/panel`); los 20 servicios ficticios, el mapa 10 × 3 y las reglas de millas están aprobados e implementados. CU-05, CU-06 y CU-07 también están implementados. Permanecen pendientes la cancelación parcial y la combinación de conexiones (4.8.9, 9.4).

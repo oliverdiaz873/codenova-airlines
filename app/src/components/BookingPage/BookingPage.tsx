@@ -463,6 +463,14 @@ export function BookingPage() {
                 <i className="booking__legend-dot booking__legend-dot--occupied" />
                 Ocupado
               </span>
+              <span>
+                <i className="booking__legend-dot booking__legend-dot--window" />
+                Ventana
+              </span>
+              <span>
+                <i className="booking__legend-dot booking__legend-dot--wing" />
+                Zona del ala
+              </span>
             </div>
 
             {error && (

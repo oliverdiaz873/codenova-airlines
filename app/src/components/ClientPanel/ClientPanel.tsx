@@ -39,10 +39,28 @@ export function ClientPanel({ onLogout }: ClientPanelProps) {
             <dt>Millas</dt>
             <dd>{customer.miles.toLocaleString('es-DO')}</dd>
           </div>
+          {customer.name && (
+            <div className="client-panel__row">
+              <dt>Nombre</dt>
+              <dd>{customer.name}</dd>
+            </div>
+          )}
           {customer.company && (
             <div className="client-panel__row">
               <dt>Compañía</dt>
               <dd>{customer.company}</dd>
+            </div>
+          )}
+          {customer.address && (
+            <div className="client-panel__row">
+              <dt>Dirección</dt>
+              <dd>{customer.address}</dd>
+            </div>
+          )}
+          {customer.phone && (
+            <div className="client-panel__row">
+              <dt>Teléfono</dt>
+              <dd>{customer.phone}</dd>
             </div>
           )}
         </dl>

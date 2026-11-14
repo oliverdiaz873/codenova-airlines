@@ -40,6 +40,40 @@ export interface PassengerCounts {
   infants: number;
 }
 
+/**
+ * CU-03 (Paso 3.2 / Paso 5): the customer searches by destino y hora de
+ * partida. The departure time is chosen as a time-of-day range at the
+ * origin (local time) and applies to the outbound leg.
+ */
+export type DepartureTimeSlot = 'any' | 'morning' | 'afternoon' | 'evening';
+
+export const DEPARTURE_TIME_SLOTS: readonly {
+  value: DepartureTimeSlot;
+  label: string;
+}[] = [
+  { value: 'any', label: 'Cualquier hora' },
+  { value: 'morning', label: 'Mañana (05:00 – 11:59)' },
+  { value: 'afternoon', label: 'Tarde (12:00 – 17:59)' },
+  { value: 'evening', label: 'Noche (18:00 – 04:59)' },
+];
+
+/** Whether a local 'HH:mm' departure time falls inside the chosen range. */
+export function matchesDepartureTimeSlot(
+  time: string,
+  slot: DepartureTimeSlot | undefined,
+): boolean {
+  if (!slot || slot === 'any') return true;
+  const [hours, minutes] = time.split(':').map(Number);
+  const totalMinutes = hours * 60 + minutes;
+  if (slot === 'morning') return totalMinutes >= 5 * 60 && totalMinutes < 12 * 60;
+  if (slot === 'afternoon') return totalMinutes >= 12 * 60 && totalMinutes < 18 * 60;
+  return totalMinutes >= 18 * 60 || totalMinutes < 5 * 60;
+}
+
+export function departureTimeSlotLabel(slot: DepartureTimeSlot): string {
+  return DEPARTURE_TIME_SLOTS.find((option) => option.value === slot)?.label ?? '';
+}
+
 export interface SearchCriteria extends PassengerCounts {
   /** Connection id from FLIGHT_CONNECTIONS (e.g. 'sdq-sju'). */
   routeId: string;
@@ -47,6 +81,8 @@ export interface SearchCriteria extends PassengerCounts {
   departureDate: string;
   /** 'YYYY-MM-DD' local departure date at the destination. */
   returnDate: string;
+  /** Outbound departure time range (CU-03 "hora de partida"). Defaults to 'any'. */
+  departureTimeSlot?: DepartureTimeSlot;
 }
 
 export interface FlightOccurrence {
@@ -166,6 +202,9 @@ export function searchFlights(
   const outbound = servicesForDirection(criteria.routeId, connection.origin.iata)
     .map((service) => buildOccurrence(service, criteria.departureDate, occupancy, flightUpdates))
     .filter((occurrence): occurrence is FlightOccurrence => occurrence !== null)
+    .filter((occurrence) =>
+      matchesDepartureTimeSlot(occurrence.departureTime, criteria.departureTimeSlot),
+    )
     .sort(byDepartureTime);
 
   const returnOptions = servicesForDirection(
@@ -264,7 +303,11 @@ export function suggestAlternativeDates(
     if (isOperatingDate(date)) {
       const hasCapacity = services.some((service) => {
         const occurrence = buildOccurrence(service, date, occupancy, flightUpdates);
-        return occurrence !== null && occurrence.availableSeats >= total;
+        return (
+          occurrence !== null &&
+          occurrence.availableSeats >= total &&
+          matchesDepartureTimeSlot(occurrence.departureTime, criteria.departureTimeSlot)
+        );
       });
       if (hasCapacity) suggestions.push(date);
     }

@@ -5,6 +5,8 @@ import { addDaysISO, todayISO } from '@/lib/dates';
 import {
   buildSearchSelection,
   canContinueSearch,
+  DEPARTURE_TIME_SLOTS,
+  departureTimeSlotLabel,
   formatDateLong,
   formatDurationMinutes,
   searchFlights,
@@ -12,6 +14,7 @@ import {
   totalPassengers,
   validateSearchCriteria,
   SEARCH_HORIZON_DAYS,
+  type DepartureTimeSlot,
   type FlightOccurrence,
   type FlightSearchResults,
   type SearchCriteria,
@@ -160,9 +163,19 @@ export function SearchPage() {
     useState<FlightOccurrence | null>(null);
   const [error, setError] = useState('');
 
+  const [departureTimeSlot, setDepartureTimeSlot] =
+    useState<DepartureTimeSlot>('any');
+
+  // CU-03: the customer filters by destino. Every destination of the
+  // network is listed (not only those of the current origin); choosing one
+  // served from another origin moves the origin to match, because CU-03
+  // searches a single direct connection (3.9).
   const destinationOptions = useMemo(
-    () => FLIGHT_CONNECTIONS.filter((c) => c.origin.iata === originIata),
-    [originIata],
+    () =>
+      [...FLIGHT_CONNECTIONS].sort((a, b) =>
+        a.destination.city.localeCompare(b.destination.city, 'es'),
+      ),
+    [],
   );
 
   const routeId =
@@ -187,6 +200,15 @@ export function SearchPage() {
 
   const handleDestinationChange = (iata: string) => {
     setDestinationIata(iata);
+    const servedFromCurrentOrigin = FLIGHT_CONNECTIONS.some(
+      (c) => c.origin.iata === originIata && c.destination.iata === iata,
+    );
+    if (!servedFromCurrentOrigin) {
+      const connection = FLIGHT_CONNECTIONS.find(
+        (c) => c.destination.iata === iata,
+      );
+      if (connection) setOriginIata(connection.origin.iata);
+    }
     setResults(null);
     setSuggestions([]);
     setSelectedOutbound(null);
@@ -199,6 +221,7 @@ export function SearchPage() {
       routeId,
       departureDate,
       returnDate,
+      departureTimeSlot,
       ...passengerCounts,
     };
     const validationError = validateSearchCriteria(nextCriteria);
@@ -302,11 +325,35 @@ export function SearchPage() {
               >
                 {destinationOptions.map((connection) => (
                   <option
-                    key={connection.destination.iata}
+                    key={connection.id}
                     value={connection.destination.iata}
                   >
                     {connection.destination.city} (
                     {connection.destination.iata})
+                    {connection.origin.iata !== originIata
+                      ? ` — desde ${connection.origin.city} (${connection.origin.iata})`
+                      : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="search-form__field">
+              <span className="search-form__label">Hora de partida (ida)</span>
+              <select
+                className="search-form__input"
+                value={departureTimeSlot}
+                onChange={(event) => {
+                  setDepartureTimeSlot(event.target.value as DepartureTimeSlot);
+                  setResults(null);
+                  setSuggestions([]);
+                  setSelectedOutbound(null);
+                  setSelectedReturn(null);
+                }}
+              >
+                {DEPARTURE_TIME_SLOTS.map((slot) => (
+                  <option key={slot.value} value={slot.value}>
+                    {slot.label}
                   </option>
                 ))}
               </select>
@@ -404,7 +451,11 @@ export function SearchPage() {
           <div className="search-results">
             <LegGroup
               title={`Vuelo de ida — ${formatDateLong(criteria.departureDate)}`}
-              emptyMessage="No hay vuelos directos en esta fecha. Prueba con una fecha de operación cercana."
+              emptyMessage={
+                criteria.departureTimeSlot && criteria.departureTimeSlot !== 'any'
+                  ? `No existen vuelos de ida que coincidan con el destino y la hora de partida elegidos (${departureTimeSlotLabel(criteria.departureTimeSlot)}). Cambia la hora de partida o la fecha y vuelve a buscar.`
+                  : 'No hay vuelos directos en esta fecha. Prueba con una fecha de operación cercana.'
+              }
               options={results.outbound}
               selected={selectedOutbound}
               onSelect={toggleOutbound}
