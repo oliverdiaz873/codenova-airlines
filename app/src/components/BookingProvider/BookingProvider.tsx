@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { initialCustomers, type DemoCustomer } from '@/data/customers';
+import { todayISO } from '@/lib/dates';
+import { buildAccrualDemoPurchases, buildDemoPurchases } from '@/lib/demoPurchases';
 import { applyDueAccrual } from '@/lib/accrual';
 import {
   applyPurchaseConfirmation,
@@ -23,6 +25,11 @@ import {
   type FlightUpdateChanges,
   type FlightUpdates,
 } from '@/lib/flightUpdate';
+import {
+  applyConnectionUpdate,
+  type ApplyConnectionUpdateResult,
+  type ConnectionUpdates,
+} from '@/lib/connectionUpdate';
 import { BookingContext, type BookingContextValue } from './useBooking';
 
 interface BookingState {
@@ -32,6 +39,8 @@ interface BookingState {
   purchases: Purchase[];
   /** CU-07: per-flightNumber schedule update history (memory only). */
   flightUpdates: FlightUpdates;
+  /** CU-07: per-connection destination update history (memory only). */
+  connectionUpdates: ConnectionUpdates;
 }
 
 /**
@@ -44,14 +53,25 @@ interface BookingState {
  * immediately. Data resets on reload.
  */
 export function BookingProvider({ children }: { children: ReactNode }) {
-  const initialState: BookingState = {
-    customers: initialCustomers,
-    activeEmail: null,
-    purchases: [],
-    flightUpdates: {},
-  };
-  const [state, setState] = useState<BookingState>(initialState);
-  const storeRef = useRef<BookingState>(initialState);
+  // D-9/D-11: the demonstration reservations are ordinary purchases owned
+  // by the retail demo account. Seeding them here makes them the single
+  // source of demo seat occupancy and makes them visible in CU-06.
+  // The completed corporate trip demonstrates mileage accrual: the lazy
+  // transition credits its pending miles as soon as the session starts.
+  const [state, setState] = useState<BookingState>(() => {
+    const reference = todayISO();
+    return {
+      customers: initialCustomers,
+      activeEmail: null,
+      purchases: [
+        ...buildDemoPurchases(reference),
+        ...buildAccrualDemoPurchases(reference),
+      ],
+      flightUpdates: {},
+      connectionUpdates: {},
+    };
+  });
+  const storeRef = useRef<BookingState>(state);
 
   const commit = useCallback((next: BookingState) => {
     storeRef.current = next;
@@ -110,6 +130,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       Date.now(),
       undefined,
       storeRef.current.flightUpdates,
+      storeRef.current.connectionUpdates,
     );
     if (!result.ok) return result;
     commit({
@@ -231,6 +252,29 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     [getFlightUpdates, commitFlightUpdates],
   );
 
+  /**
+   * CU-07 (D-6): atomic connection destination update. The pure transition
+   * validates the connection and the approved destination fare, then the
+   * whole trip moves together; past departures keep their historical route.
+   */
+  const updateConnectionDestination = useCallback(
+    (routeId: string, destinationIata: string): ApplyConnectionUpdateResult => {
+      const result = applyConnectionUpdate(
+        storeRef.current.connectionUpdates,
+        routeId,
+        destinationIata,
+        Date.now(),
+      );
+      if (!result.ok) return result;
+      commit({
+        ...storeRef.current,
+        connectionUpdates: result.connectionUpdates,
+      });
+      return result;
+    },
+    [commit],
+  );
+
   const activeCustomer =
     state.customers.find((customer) => customer.email === state.activeEmail) ??
     null;
@@ -240,6 +284,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     activeCustomer,
     purchases: state.purchases,
     flightUpdates: state.flightUpdates,
+    connectionUpdates: state.connectionUpdates,
     login,
     register,
     logout,
@@ -249,6 +294,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     syncAccrual,
     updateFlightService,
     resolveService,
+    updateConnectionDestination,
   };
 
   return (

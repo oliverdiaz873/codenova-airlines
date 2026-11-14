@@ -1,0 +1,15 @@
+%% CU-06 — Cancelar reservación (nivel medio)
+flowchart TD
+    A((Inicio)) --> B[Cliente abre /panel/reservas/:code]
+    B --> C{¿Reserva propia y confirmada?}
+    C -- No --> D[No puede cancelarla; sin cambios]
+    D --> Z((Fin))
+    C -- Sí --> E[Resuelve 1er vuelo por fecha; calcula plazo 168 h inclusivo en hora local del origen]
+    E --> F{¿Solicitud dentro de las 168 h?}
+    F -- No --> G[«La cancelación con devolución del 80 % no procede»; sin cambios]
+    G --> Z
+    F -- Sí --> H[applyPurchaseCancellation: commit atómico]
+    H --> I[Nuevo estado: cancelada + cancelledAtMs + refundAmount = 80 % neto]
+    I --> J[Asientos liberados implícitamente; millas sin reversión]
+    J --> K[Reserva conservada en el historial]
+    K --> L((Fin))

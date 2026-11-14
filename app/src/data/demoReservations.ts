@@ -4,10 +4,10 @@
  *
  * These bookings represent the demonstration reservations approved in
  * PA-1.10 (confirmed round trip, cancelable, outside the refund window).
- * Until CU-04/CU-06 exist, they only discount seat availability on the
- * specific flight occurrences they occupy. Dates are anchored to operating
- * days relative to the reference date so they always fall inside the
- * 30-day search horizon.
+ * `demoPurchases.ts` materializes them as real purchases owned by the retail
+ * demo customer (D-9), which are the single source of their seat occupancy
+ * (D-11). Dates are anchored to operating days relative to the reference
+ * date so they always fall inside the 30-day search horizon.
  */
 
 import {
@@ -102,23 +102,4 @@ export function resolveDemoBookings(referenceDateISO: string): ResolvedDemoBooki
         : clampToHorizon(returnCandidate, referenceDateISO, horizonEnd);
     return { ...booking, outboundDate: departureDate, returnDate };
   });
-}
-
-/**
- * Occupied seats per occurrence, keyed as `${flightNumber}|${YYYY-MM-DD}`.
- * Deterministic for a given reference date; resets on page reload.
- */
-export function buildOccupancyMap(referenceDateISO: string): Map<string, number> {
-  const occupancy = new Map<string, number>();
-  for (const booking of resolveDemoBookings(referenceDateISO)) {
-    const legs = [
-      [booking.outboundFlightNumber, booking.outboundDate],
-      [booking.returnFlightNumber, booking.returnDate],
-    ] as const;
-    for (const [flightNumber, date] of legs) {
-      const key = `${flightNumber}|${date}`;
-      occupancy.set(key, (occupancy.get(key) ?? 0) + booking.seats);
-    }
-  }
-  return occupancy;
 }

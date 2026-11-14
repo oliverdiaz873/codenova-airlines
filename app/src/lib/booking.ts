@@ -12,6 +12,14 @@
 
 import { distanceMilesForRoute } from '@/data/routeDistances';
 import { scheduledServiceForDate, type FlightUpdates } from '@/lib/flightUpdate';
+import type { Airport } from '@/data/scheduledServices';
+import type { FlightConnection } from '@/data/flights';
+import {
+  baseConnection,
+  effectiveConnectionForDate,
+  serviceForConnection,
+  type ConnectionUpdates,
+} from '@/lib/connectionUpdate';
 import { isValidSeatId } from '@/data/seatMap';
 import type { DemoCustomer } from '@/data/customers';
 import { isValidISODate, localDateTimeToUtc } from '@/lib/dates';
@@ -50,6 +58,13 @@ export interface BookingComponent {
   seatId: string;
   /** Fare of the leg per passenger (RD$). */
   fare: number;
+  /**
+   * CU-07 destination snapshot at purchase time. Optional so older
+   * fixtures stay valid; when present it preserves the historical route
+   * even after a later connection update.
+   */
+  originAirport?: Airport;
+  destinationAirport?: Airport;
 }
 
 export interface Purchase {
@@ -107,6 +122,26 @@ export function nextReservationCode(sequence: number): string {
   return `CN-${String(sequence).padStart(4, '0')}`;
 }
 
+/**
+ * D-10: demonstration reservations use their own independent `CN-9xxx`
+ * range, so they never consume or shift the visible user sequence.
+ */
+export function isDemoReservationCode(code: string): boolean {
+  return /^CN-9\d{3}$/.test(code);
+}
+
+/**
+ * Next visible user code. Only non-demo purchases count, so seeding or
+ * cancelling demonstration reservations never changes what a customer sees.
+ * Cancelled purchases keep their code, exactly as before.
+ */
+export function nextUserReservationCode(purchases: readonly Purchase[]): string {
+  const userCount = purchases.filter(
+    (purchase) => !isDemoReservationCode(purchase.code),
+  ).length;
+  return nextReservationCode(userCount + 1);
+}
+
 /** Wall-clock 'HH:mm' with valid hour/minute ranges. */
 const LOCAL_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -118,6 +153,7 @@ const LOCAL_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 export function returnArrivalUtcMs(
   selection: SearchSelection,
   flightUpdates?: FlightUpdates,
+  connectionUpdates?: ConnectionUpdates,
 ): number {
   const leg = selection?.returnFlight;
   if (typeof leg !== 'object' || leg === null) return Number.NaN;
@@ -125,10 +161,14 @@ export function returnArrivalUtcMs(
     return Number.NaN;
   }
   // CU-07: arrival derives from the schedule in effect for the leg date.
-  const service = scheduledServiceForDate(
+  // D-6: the whole trip shares the destination in effect on the outbound
+  // date, so the return origin and its zone follow the effective connection.
+  const service = resolveServiceForTrip(
+    selection,
     leg.flightNumber,
-    flightUpdates,
     leg.date,
+    flightUpdates,
+    connectionUpdates,
   );
   if (!service) return Number.NaN;
   if (
@@ -151,6 +191,59 @@ export function returnArrivalUtcMs(
   }
 }
 
+/** Effective connection for the trip, keyed by the outbound departure date. */
+function effectiveTripConnection(
+  connection: FlightConnection,
+  selection: SearchSelection,
+  flightUpdates?: FlightUpdates,
+  connectionUpdates?: ConnectionUpdates,
+): FlightConnection {
+  return effectiveConnectionForDate(
+    connection,
+    connectionUpdates,
+    selection.departureDate,
+    flightUpdates,
+  );
+}
+
+/** Base connection for the selection's route, or null when unknown. */
+function selectionConnection(
+  selection: SearchSelection,
+): FlightConnection | null {
+  return baseConnection(selection.routeId) ?? null;
+}
+
+/**
+ * Resolves one leg against the schedule and the effective connection, so
+ * its airports and labels reflect the destination in effect for the trip.
+ */
+function resolveServiceForTrip(
+  selection: SearchSelection,
+  flightNumber: string,
+  dateISO: string,
+  flightUpdates?: FlightUpdates,
+  connectionUpdates?: ConnectionUpdates,
+) {
+  const baseService = scheduledServiceForDate(
+    flightNumber,
+    flightUpdates,
+    dateISO,
+  );
+  const connection = selectionConnection(selection);
+  if (!baseService || !connection) return baseService ?? null;
+  const effective = effectiveTripConnection(
+    connection,
+    selection,
+    flightUpdates,
+    connectionUpdates,
+  );
+  return serviceForConnection(
+    baseService,
+    connection,
+    effective.destination.iata,
+  );
+}
+
 function hasDuplicates(values: string[]): boolean {
   return new Set(values).size !== values.length;
 }
@@ -167,6 +260,7 @@ export function validatePurchase(
   milesUsed: number,
   customer: DemoCustomer,
   flightUpdates?: FlightUpdates,
+  connectionUpdates?: ConnectionUpdates,
 ): string | null {
   // Structural guards (4.1.1): a degenerate or manipulated selection is
   // rejected here even when the caller skips the CU-03 boundary check.
@@ -207,15 +301,30 @@ export function validatePurchase(
   ) {
     return 'Las tarifas del itinerario no son válidas.';
   }
-  const outboundService = scheduledServiceForDate(
-    outbound.flightNumber,
+  const connection = selectionConnection(selection);
+  if (!connection) {
+    return 'La ruta seleccionada no existe.';
+  }
+  // D-6: one destination for the whole trip, keyed by the outbound date.
+  const effective = effectiveTripConnection(
+    connection,
+    selection,
     flightUpdates,
-    outbound.date,
+    connectionUpdates,
   );
-  const returnService = scheduledServiceForDate(
-    returnFlight.flightNumber,
+  const outboundService = resolveServiceForTrip(
+    selection,
+    outbound.flightNumber,
+    outbound.date,
     flightUpdates,
+    connectionUpdates,
+  );
+  const returnService = resolveServiceForTrip(
+    selection,
+    returnFlight.flightNumber,
     returnFlight.date,
+    flightUpdates,
+    connectionUpdates,
   );
   if (!outboundService || !returnService) {
     return 'Uno de los vuelos no existe en la programación.';
@@ -226,6 +335,35 @@ export function validatePurchase(
   ) {
     return 'Las fechas de los vuelos no coinciden con la selección.';
   }
+  // D-6 direction coherence: the outbound leaves the connection origin and
+  // the return arrives there; both other ends are the effective destination.
+  if (
+    outboundService.routeId !== connection.id ||
+    returnService.routeId !== connection.id ||
+    outboundService.origin.iata !== connection.origin.iata ||
+    outboundService.destination.iata !== effective.destination.iata ||
+    returnService.origin.iata !== effective.destination.iata ||
+    returnService.destination.iata !== connection.origin.iata
+  ) {
+    return 'La información del vuelo cambió; realiza una nueva búsqueda.';
+  }
+  // D-7: the selection must carry the effective fare and the effective
+  // labels. A selection captured before a destination change is rejected
+  // and never silently repriced.
+  if (
+    outbound.fare !== effective.farePerPassenger ||
+    returnFlight.fare !== effective.farePerPassenger ||
+    outbound.originLabel !==
+      `${outboundService.origin.city} (${outboundService.origin.iata})` ||
+    outbound.destinationLabel !==
+      `${outboundService.destination.city} (${outboundService.destination.iata})` ||
+    returnFlight.originLabel !==
+      `${returnService.origin.city} (${returnService.origin.iata})` ||
+    returnFlight.destinationLabel !==
+      `${returnService.destination.city} (${returnService.destination.iata})`
+  ) {
+    return 'La información del vuelo cambió; realiza una nueva búsqueda.';
+  }
   // CU-07: the selection must match the schedule in effect for each leg
   // date — a selection captured before a schedule update is stale.
   if (
@@ -235,6 +373,23 @@ export function validatePurchase(
     returnFlight.durationMinutes !== returnService.durationMinutes
   ) {
     return 'La información del vuelo cambió; realiza una nueva búsqueda.';
+  }
+  // The advertised total must equal the effective fare for both legs; this
+  // also keeps the amount aligned with the resolved destination fare.
+  if (
+    selection.totalPrice !==
+    effective.farePerPassenger * 2 * selection.totalPassengers
+  ) {
+    return 'El importe total de la compra no es válido.';
+  }
+  // CU-04 alternate 2: an agent may have marked a flight unavailable. The
+  // message is distinct from the seat-capacity one so the customer knows
+  // the operation was not completed because of the flight state.
+  if (outboundService.available === false) {
+    return `El vuelo ${outboundService.flightNumber} del ${outbound.date} no está disponible para reservar.`;
+  }
+  if (returnService.available === false) {
+    return `El vuelo ${returnService.flightNumber} del ${returnFlight.date} no está disponible para reservar.`;
   }
   if (
     typeof seats !== 'object' ||
@@ -288,8 +443,18 @@ export function buildPurchase(
   customer: DemoCustomer,
   code: string,
   flightUpdates?: FlightUpdates,
+  connectionUpdates?: ConnectionUpdates,
 ): Purchase | null {
-  if (validatePurchase(selection, seats, milesUsed, customer, flightUpdates) !== null) {
+  if (
+    validatePurchase(
+      selection,
+      seats,
+      milesUsed,
+      customer,
+      flightUpdates,
+      connectionUpdates,
+    ) !== null
+  ) {
     return null;
   }
 
@@ -306,10 +471,30 @@ export function buildPurchase(
   const kinds = passengerKinds(selection.passengers);
   const components: BookingComponent[] = [];
 
+  // D-6/D-7: snapshot the airports in effect, so the historical route of a
+  // confirmed purchase never changes after a later destination update.
+  const outboundService = resolveServiceForTrip(
+    selection,
+    selection.outbound.flightNumber,
+    selection.outbound.date,
+    flightUpdates,
+    connectionUpdates,
+  );
+  const returnService = resolveServiceForTrip(
+    selection,
+    selection.returnFlight.flightNumber,
+    selection.returnFlight.date,
+    flightUpdates,
+    connectionUpdates,
+  );
+  if (!outboundService || !returnService) return null;
+
   const pushLeg = (
     leg: 'ida' | 'vuelta',
     legSummary: SearchSelection['outbound'],
     seatIds: string[],
+    originAirport: Airport,
+    destinationAirport: Airport,
   ) => {
     kinds.forEach((kind, index) => {
       components.push({
@@ -322,12 +507,26 @@ export function buildPurchase(
         ],
         seatId: seatIds[index],
         fare: legSummary.fare,
+        originAirport,
+        destinationAirport,
       });
     });
   };
 
-  pushLeg('ida', selection.outbound, seats.outbound);
-  pushLeg('vuelta', selection.returnFlight, seats.return);
+  pushLeg(
+    'ida',
+    selection.outbound,
+    seats.outbound,
+    outboundService.origin,
+    outboundService.destination,
+  );
+  pushLeg(
+    'vuelta',
+    selection.returnFlight,
+    seats.return,
+    returnService.origin,
+    returnService.destination,
+  );
 
   const discountApplied = milesToDiscount(milesUsed);
   const distance = distanceMilesForRoute(selection.routeId);
@@ -336,7 +535,11 @@ export function buildPurchase(
       ? computeAccruedMiles(distance, selection.totalPassengers)
       : 0;
 
-  const arrivalMs = returnArrivalUtcMs(selection, flightUpdates);
+  const arrivalMs = returnArrivalUtcMs(
+    selection,
+    flightUpdates,
+    connectionUpdates,
+  );
   if (!Number.isFinite(arrivalMs)) {
     return null;
   }

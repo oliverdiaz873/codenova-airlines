@@ -3,14 +3,13 @@
  * Source: PLAN_CODENOVA.md — sections 3.6, 3.9, 4.4, 4.8
  *
  * Occupancy is tracked per flight occurrence (`flightNumber|date`) at seat
- * level. It combines:
- * - demonstration bookings (PA-1.10), which occupy a deterministic seat set
- *   per occurrence (decision P-2);
- * - user purchases, one seat per component (C-3).
+ * level and derives from confirmed purchases only (D-11). The demonstration
+ * reservations are ordinary purchases owned by the retail demo customer
+ * (D-9), so there is a single source of truth for every occupied seat.
  * Everything lives in memory and resets on reload (C-1.8).
  */
 
-import { resolveDemoBookings } from '@/data/demoReservations';
+import { buildDemoPurchases } from '@/lib/demoPurchases';
 import { ALL_SEATS, isValidSeatId } from '@/data/seatMap';
 import type { Purchase } from '@/lib/booking';
 
@@ -19,26 +18,14 @@ export function occurrenceKey(flightNumber: string, date: string): string {
 }
 
 /**
- * Seats occupied by the demonstration bookings, keyed by occurrence.
- * Deterministic: each demo booking occupies the first `seats` seats of the
- * map on each of its two legs (P-2).
+ * Seats occupied by the demonstration purchases for a reference date.
+ * Derived from the purchases themselves (D-11) — never from a parallel
+ * seat map — so cancelling a demo reservation frees its seats.
  */
 export function demoOccupiedSeats(
   referenceDateISO: string,
 ): Map<string, Set<string>> {
-  const occupancy = new Map<string, Set<string>>();
-  const addSeats = (flightNumber: string, date: string, count: number) => {
-    const key = occurrenceKey(flightNumber, date);
-    const seats = occupancy.get(key) ?? new Set<string>();
-    for (const seat of ALL_SEATS.slice(0, count)) seats.add(seat);
-    occupancy.set(key, seats);
-  };
-
-  for (const booking of resolveDemoBookings(referenceDateISO)) {
-    addSeats(booking.outboundFlightNumber, booking.outboundDate, booking.seats);
-    addSeats(booking.returnFlightNumber, booking.returnDate, booking.seats);
-  }
-  return occupancy;
+  return userOccupiedSeats(buildDemoPurchases(referenceDateISO));
 }
 
 /** Seats occupied by confirmed user purchases, keyed by occurrence. */
@@ -58,17 +45,35 @@ export function userOccupiedSeats(
   return occupancy;
 }
 
-/** Union of demo and user occupancy for one occurrence. */
+/**
+ * Number of occupied seats per occurrence, derived from purchases. Search
+ * only needs the count, not the individual seats.
+ */
+export function occupiedSeatCounts(
+  purchases: readonly Purchase[],
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const [key, seats] of userOccupiedSeats(purchases)) {
+    counts.set(key, seats.size);
+  }
+  return counts;
+}
+
+/**
+ * Union of all occupancy maps passed for one occurrence. Callers normally
+ * pass a single purchases-derived map; the optional second map keeps the
+ * historical demo/user split usable while the model converges (D-11).
+ */
 export function occupiedSeatIds(
   flightNumber: string,
   date: string,
-  demoOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
-  userOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
+  firstOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
+  secondOccupancy?: ReadonlyMap<string, ReadonlySet<string>>,
 ): Set<string> {
   const key = occurrenceKey(flightNumber, date);
   const occupied = new Set<string>();
-  for (const seat of demoOccupancy.get(key) ?? []) occupied.add(seat);
-  for (const seat of userOccupancy.get(key) ?? []) occupied.add(seat);
+  for (const seat of firstOccupancy.get(key) ?? []) occupied.add(seat);
+  for (const seat of secondOccupancy?.get(key) ?? []) occupied.add(seat);
   return occupied;
 }
 
@@ -76,10 +81,15 @@ export function occupiedSeatIds(
 export function availableSeatIds(
   flightNumber: string,
   date: string,
-  demoOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
-  userOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
+  firstOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
+  secondOccupancy?: ReadonlyMap<string, ReadonlySet<string>>,
 ): string[] {
-  const occupied = occupiedSeatIds(flightNumber, date, demoOccupancy, userOccupancy);
+  const occupied = occupiedSeatIds(
+    flightNumber,
+    date,
+    firstOccupancy,
+    secondOccupancy,
+  );
   return ALL_SEATS.filter((seat) => !occupied.has(seat));
 }
 
@@ -87,10 +97,15 @@ export function availableSeatIds(
 export function availableSeatCount(
   flightNumber: string,
   date: string,
-  demoOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
-  userOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
+  firstOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
+  secondOccupancy?: ReadonlyMap<string, ReadonlySet<string>>,
 ): number {
-  return availableSeatIds(flightNumber, date, demoOccupancy, userOccupancy).length;
+  return availableSeatIds(
+    flightNumber,
+    date,
+    firstOccupancy,
+    secondOccupancy,
+  ).length;
 }
 
 /** A single seat request for one flight occurrence. */
@@ -112,8 +127,8 @@ export interface SeatRequest {
  */
 export function validateSeatAvailability(
   requests: readonly SeatRequest[],
-  demoOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
-  userOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
+  firstOccupancy: ReadonlyMap<string, ReadonlySet<string>>,
+  secondOccupancy?: ReadonlyMap<string, ReadonlySet<string>>,
 ): string | null {
   const claimed = new Map<string, Set<string>>();
 
@@ -126,8 +141,8 @@ export function validateSeatAvailability(
     const occupied = occupiedSeatIds(
       request.flightNumber,
       request.date,
-      demoOccupancy,
-      userOccupancy,
+      firstOccupancy,
+      secondOccupancy,
     );
     if (occupied.has(request.seatId)) {
       return `El asiento ${request.seatId} del vuelo ${request.flightNumber} del ${request.date} no está disponible.`;

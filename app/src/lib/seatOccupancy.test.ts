@@ -7,6 +7,7 @@ import {
   availableSeatCount,
   availableSeatIds,
   demoOccupiedSeats,
+  occupiedSeatCounts,
   occurrenceKey,
   userOccupiedSeats,
   validateSeatAvailability,
@@ -97,6 +98,21 @@ describe('userOccupiedSeats', () => {
     };
     const user = userOccupiedSeats([purchase]);
     expect(user.size).toBe(0);
+  });
+});
+
+describe('occupiedSeatCounts', () => {
+  it('counts confirmed seats per occurrence and ignores cancelled ones', () => {
+    const purchase = buildPurchase(selection, seats, 0, minorista, 'CN-0001');
+    expect(purchase).not.toBeNull();
+    const live = occupiedSeatCounts([purchase!]);
+    expect(live.get(occurrenceKey('CN201', '2026-11-11'))).toBe(1);
+    expect(live.get(occurrenceKey('CN202', '2026-11-13'))).toBe(1);
+
+    const cancelled = occupiedSeatCounts([
+      { ...purchase!, status: 'cancelada' },
+    ]);
+    expect(cancelled.size).toBe(0);
   });
 });
 

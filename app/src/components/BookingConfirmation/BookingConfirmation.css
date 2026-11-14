@@ -351,3 +351,54 @@
   width: 1rem;
   height: 1rem;
 }
+
+/* D-14: transactional pages stay usable on small screens. */
+@media (max-width: 640px) {
+  .confirmation {
+    padding: calc(var(--nav-height) + 1rem) 0 2.5rem;
+  }
+
+  .confirmation__card {
+    padding: 1rem;
+  }
+
+  .confirmation__title {
+    font-size: 1.5rem;
+  }
+
+  .confirmation__row {
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .confirmation__row dd {
+    text-align: left;
+  }
+
+  .confirmation__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .confirmation__actions .btn,
+  .confirmation__secondary {
+    width: 100%;
+    text-align: center;
+  }
+
+  .confirmation__email-header {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .confirmation__email-meta,
+  .confirmation__email-body {
+    padding-inline: 1rem;
+  }
+
+  .confirmation__email-alert {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}

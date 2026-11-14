@@ -41,6 +41,7 @@ describe('applyFlightUpdate', () => {
     expect(result.update).toEqual({
       departureLocal: '09:30',
       durationMinutes: 80,
+      available: true,
       effectiveAtMs: 1_000,
     });
     expect(result.flightUpdates.CN101).toHaveLength(1);
@@ -312,10 +313,15 @@ describe('scheduledServiceForDate / currentScheduleFieldsForService', () => {
       update('09:30', 80, 100),
       update('10:00', 90, 200),
     ]);
-    expect(fields).toEqual({ departureLocal: '10:00', durationMinutes: 90 });
+    expect(fields).toEqual({
+      departureLocal: '10:00',
+      durationMinutes: 90,
+      available: true,
+    });
     expect(currentScheduleFieldsForService(CN101, undefined)).toEqual({
       departureLocal: '08:00',
       durationMinutes: 75,
+      available: true,
     });
   });
 });
@@ -447,5 +453,121 @@ describe('serviceForNextOperatingDate (E1 landing)', () => {
     expect(next.date).toBe(WEDNESDAY);
     expect(next.service.departureLocal).toBe('09:30');
     expect(next.service.durationMinutes).toBe(80);
+  });
+});
+
+describe('CU-07 — flight availability', () => {
+  const DATE = '2026-11-09';
+  const DEP = departureMs(DATE);
+
+  it('records the availability flag in the update version', () => {
+    const result = applyFlightUpdate({}, 'CN101', { available: false }, 1_000);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.update.available).toBe(false);
+    expect(result.update.departureLocal).toBe('08:00');
+    expect(result.update.durationMinutes).toBe(75);
+  });
+
+  it('marks a future occurrence unavailable', () => {
+    const updates: FlightServiceUpdate[] = [
+      {
+        departureLocal: '08:00',
+        durationMinutes: 75,
+        available: false,
+        effectiveAtMs: DEP - 60_000,
+      },
+    ];
+    const resolved = serviceForDate(CN101, updates, DATE);
+    expect(resolved.available).toBe(false);
+    expect(resolved.departureLocal).toBe('08:00');
+    expect(resolved.routeId).toBe(CN101.routeId);
+  });
+
+  it('keeps a departed occurrence available (historical state)', () => {
+    const updates: FlightServiceUpdate[] = [
+      {
+        departureLocal: '08:00',
+        durationMinutes: 75,
+        available: false,
+        effectiveAtMs: DEP + 60_000,
+      },
+    ];
+    expect(serviceForDate(CN101, updates, DATE)).toBe(CN101);
+    expect(serviceForDate(CN101, updates, DATE).available).not.toBe(false);
+  });
+
+  it('allows toggling the flight back to available', () => {
+    const off = applyFlightUpdate({}, 'CN101', { available: false }, DEP - 7_200_000);
+    expect(off.ok).toBe(true);
+    if (!off.ok) return;
+    expect(serviceForDate(CN101, off.flightUpdates.CN101, DATE).available).toBe(
+      false,
+    );
+
+    const on = applyFlightUpdate(
+      off.flightUpdates,
+      'CN101',
+      { available: true },
+      DEP - 3_600_000,
+    );
+    expect(on.ok).toBe(true);
+    if (!on.ok) return;
+    expect(serviceForDate(CN101, on.flightUpdates.CN101, DATE).available).toBe(
+      true,
+    );
+    expect(on.flightUpdates.CN101).toHaveLength(2);
+  });
+
+  it('treats resubmitting the same availability as a no-op', () => {
+    const off = applyFlightUpdate({}, 'CN101', { available: false }, 1_000);
+    expect(off.ok).toBe(true);
+    if (!off.ok) return;
+    const again = applyFlightUpdate(
+      off.flightUpdates,
+      'CN101',
+      { available: false },
+      2_000,
+    );
+    expect(again.ok).toBe(false);
+    if (again.ok) return;
+    expect(again.error).toContain('No hay cambios');
+  });
+
+  it('exposes availability in the current agent-facing fields', () => {
+    const updates: FlightServiceUpdate[] = [
+      {
+        departureLocal: '09:30',
+        durationMinutes: 80,
+        available: false,
+        effectiveAtMs: 100,
+      },
+    ];
+    expect(currentScheduleFieldsForService(CN101, updates)).toEqual({
+      departureLocal: '09:30',
+      durationMinutes: 80,
+      available: false,
+    });
+  });
+
+  it('rejects a non-boolean availability value', () => {
+    const result = applyFlightUpdate(
+      {},
+      'CN101',
+      // @ts-expect-error - intentionally malformed runtime input
+      { available: 'no' },
+      1_000,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('disponibilidad');
+  });
+
+  it('defaults older versions without the flag to available', () => {
+    const updates = [update('09:30', 80, DEP - 60_000)];
+    expect(serviceForDate(CN101, updates, DATE).available).not.toBe(false);
+    expect(currentScheduleFieldsForService(CN101, updates).available).toBe(
+      true,
+    );
   });
 });

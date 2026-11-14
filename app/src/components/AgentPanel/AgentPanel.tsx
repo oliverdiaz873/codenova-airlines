@@ -8,6 +8,12 @@ import {
   currentScheduleFieldsForService,
   type FlightUpdateChanges,
 } from '@/lib/flightUpdate';
+import {
+  allowedDestinations,
+  baseConnection,
+  currentDestinationIata,
+  fareForRoute,
+} from '@/lib/connectionUpdate';
 import { useBooking } from '@/components/BookingProvider/useBooking';
 import './AgentPanel.css';
 
@@ -21,24 +27,61 @@ interface AgentMessage {
  * Simulated ticket-agent area: no real authentication. The agent picks a
  * recurring scheduled service by flight number, reviews its current
  * information and edits only the approved fields (departureLocal,
- * durationMinutes). All updates go through BookingProvider's atomic
- * updateFlightService; nothing here manipulates flightUpdates directly.
+ * durationMinutes, available). All updates go through BookingProvider's
+ * atomic updateFlightService; nothing here manipulates flightUpdates directly.
  */
 export function AgentPanel() {
-  const { flightUpdates, updateFlightService } = useBooking();
+  const {
+    flightUpdates,
+    updateFlightService,
+    connectionUpdates,
+    updateConnectionDestination,
+  } =
+    useBooking();
   const [selectedFlight, setSelectedFlight] = useState('');
   const [departureInput, setDepartureInput] = useState('');
   const [durationInput, setDurationInput] = useState('');
+  const [availableInput, setAvailableInput] = useState(true);
+  const [destinationInput, setDestinationInput] = useState('');
   const [message, setMessage] = useState<AgentMessage | null>(null);
 
   const service = SCHEDULED_SERVICES.find(
     (candidate) => candidate.flightNumber === selectedFlight,
   );
   const connection = service
-    ? FLIGHT_CONNECTIONS.find((c) => c.id === service.routeId)
+    ? (baseConnection(service.routeId) ??
+      FLIGHT_CONNECTIONS.find((c) => c.id === service.routeId))
     : undefined;
   const current = service
     ? currentScheduleFieldsForService(service, flightUpdates[service.flightNumber])
+    : null;
+  const currentDestination = connection
+    ? currentDestinationIata(connection, connectionUpdates)
+    : '';
+  const destinationOptions = connection
+    ? allowedDestinations(connection.origin.iata)
+    : [];
+  const destinationAirport =
+    destinationOptions.find((airport) => airport.iata === currentDestination) ??
+    null;
+  const isOutbound = Boolean(
+    service && connection && service.origin.iata === connection.origin.iata,
+  );
+  const effectiveOrigin =
+    connection && destinationAirport
+      ? isOutbound
+        ? connection.origin
+        : destinationAirport
+      : service?.origin;
+  const effectiveDestination =
+    connection && destinationAirport
+      ? isOutbound
+        ? destinationAirport
+        : connection.origin
+      : service?.destination;
+  const effectiveFare = connection
+    ? (fareForRoute(connection.origin.iata, currentDestination) ??
+      connection.farePerPassenger)
     : null;
 
   const selectFlight = (flightNumber: string) => {
@@ -54,6 +97,13 @@ export function AgentPanel() {
       );
       setDepartureInput(fields.departureLocal);
       setDurationInput(String(fields.durationMinutes));
+      setAvailableInput(fields.available);
+      const targetConnection = baseConnection(target.routeId);
+      setDestinationInput(
+        targetConnection
+          ? currentDestinationIata(targetConnection, connectionUpdates)
+          : '',
+      );
     }
   };
 
@@ -67,11 +117,30 @@ export function AgentPanel() {
     if (parsedDuration !== (current?.durationMinutes ?? Number.NaN)) {
       changes.durationMinutes = parsedDuration;
     }
+    if (availableInput !== (current?.available ?? true)) {
+      changes.available = availableInput;
+    }
     const result = updateFlightService(service.flightNumber, changes);
     if (result.ok) {
       setMessage({
         type: 'success',
         text: `Información de ${service.flightNumber} actualizada correctamente.`,
+      });
+    } else {
+      setMessage({ type: 'error', text: result.error });
+    }
+  };
+
+  const handleSaveDestination = () => {
+    if (!connection) return;
+    const result = updateConnectionDestination(
+      connection.id,
+      destinationInput,
+    );
+    if (result.ok) {
+      setMessage({
+        type: 'success',
+        text: `Destino de la conexión ${connection.origin.iata} actualizado correctamente para las salidas futuras.`,
       });
     } else {
       setMessage({ type: 'error', text: result.error });
@@ -134,8 +203,13 @@ export function AgentPanel() {
                 <div className="agent__info-row">
                   <dt>Ruta</dt>
                   <dd>
-                    {service.origin.city} ({service.origin.iata}) →{' '}
-                    {service.destination.city} ({service.destination.iata})
+                    {effectiveOrigin
+                      ? `${effectiveOrigin.city} (${effectiveOrigin.iata})`
+                      : service.origin.iata}{' '}
+                    →{' '}
+                    {effectiveDestination
+                      ? `${effectiveDestination.city} (${effectiveDestination.iata})`
+                      : service.destination.iata}
                   </dd>
                 </div>
                 <div className="agent__info-row">
@@ -147,13 +221,17 @@ export function AgentPanel() {
                   <dd>{current.durationMinutes} min</dd>
                 </div>
                 <div className="agent__info-row">
+                  <dt>Disponibilidad</dt>
+                  <dd>{current.available ? 'Disponible' : 'No disponible'}</dd>
+                </div>
+                <div className="agent__info-row">
                   <dt>Días de operación</dt>
                   <dd>{DAYS_OF_OPERATION.join(' · ')}</dd>
                 </div>
-                {connection && (
+                {connection && effectiveFare !== null && (
                   <div className="agent__info-row">
                     <dt>Tarifa por pasajero</dt>
-                    <dd>{formatCurrency(connection.farePerPassenger)}</dd>
+                    <dd>{formatCurrency(effectiveFare)}</dd>
                   </div>
                 )}
                 <div className="agent__info-row">
@@ -186,7 +264,64 @@ export function AgentPanel() {
                     onChange={(event) => setDurationInput(event.target.value)}
                   />
                 </label>
+                <label className="agent__field agent__field--checkbox">
+                  <input
+                    type="checkbox"
+                    checked={availableInput}
+                    onChange={(event) =>
+                      setAvailableInput(event.target.checked)
+                    }
+                  />
+                  <span className="agent__field-label">
+                    Vuelo disponible para reservar
+                  </span>
+                </label>
               </div>
+
+              <h2 className="agent__section-title">
+                Actualizar destino de la conexión
+              </h2>
+              <p className="agent__hint">
+                El destino se actualiza para toda la conexión (ida y regreso).
+                Solo se ofrecen destinos con tarifa aprobada desde el mismo
+                origen. Las salidas que ya ocurrieron conservan su ruta.
+              </p>
+              <div className="agent__form">
+                <label className="agent__field">
+                  <span className="agent__field-label">Destino</span>
+                  <select
+                    className="agent__select"
+                    value={destinationInput}
+                    onChange={(event) =>
+                      setDestinationInput(event.target.value)
+                    }
+                  >
+                    {destinationOptions.map((airport) => (
+                      <option key={airport.iata} value={airport.iata}>
+                        {airport.city} ({airport.iata})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary agent__save"
+                disabled={
+                  !connection || destinationInput === currentDestination
+                }
+                onClick={handleSaveDestination}
+              >
+                Actualizar destino
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-primary agent__save"
+                onClick={handleSave}
+              >
+                Guardar cambios
+              </button>
 
               {message && (
                 <p
@@ -196,14 +331,6 @@ export function AgentPanel() {
                   {message.text}
                 </p>
               )}
-
-              <button
-                type="button"
-                className="btn btn-primary agent__save"
-                onClick={handleSave}
-              >
-                Guardar cambios
-              </button>
             </>
           )}
         </section>

@@ -235,6 +235,38 @@ export function ReservationDetail() {
           </dl>
         </section>
 
+        {purchase.pendingMiles > 0 && (
+          <section className="reservation__card" aria-label="Millas">
+            <h2 className="reservation__section-title">Millas</h2>
+            <dl className="reservation__payment">
+              <div className="reservation__row">
+                <dt>
+                  {purchase.milesCredited
+                    ? 'Millas acumuladas'
+                    : isCancelled
+                      ? 'Millas no acumuladas'
+                      : 'Millas pendientes'}
+                </dt>
+                <dd>
+                  {(purchase.milesCredited
+                    ? purchase.pendingMiles
+                    : isCancelled
+                      ? 0
+                      : purchase.pendingMiles
+                  ).toLocaleString('es-DO')}
+                </dd>
+              </div>
+            </dl>
+            <p>
+              {purchase.milesCredited
+                ? 'Estas millas ya fueron acreditadas al completar el viaje de ida y vuelta.'
+                : isCancelled
+                  ? 'La reservación se canceló antes de completar el viaje, por lo que no acumula millas (D-1).'
+                  : 'Las millas se acreditan automáticamente al completar el viaje de ida y vuelta.'}
+            </p>
+          </section>
+        )}
+
         {!isCancelled && (
           <section className="reservation__card" aria-label="Cancelación">
             <h2 className="reservation__section-title">

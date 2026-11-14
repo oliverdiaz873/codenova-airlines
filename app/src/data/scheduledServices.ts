@@ -24,6 +24,8 @@ export interface ScheduledService {
   departureLocal: string;
   /** Elapsed block time in minutes; arrival is computed via IANA zones. */
   durationMinutes: number;
+  /** CU-07 availability; absent means available. */
+  available?: boolean;
 }
 
 const SDQ: Airport = { city: 'Santo Domingo', iata: 'SDQ', timeZone: 'America/Santo_Domingo' };
@@ -33,6 +35,17 @@ const AUA: Airport = { city: 'Aruba', iata: 'AUA', timeZone: 'America/Aruba' };
 const MIA: Airport = { city: 'Miami', iata: 'MIA', timeZone: 'America/New_York' };
 const BOG: Airport = { city: 'Bogotá', iata: 'BOG', timeZone: 'America/Bogota' };
 const HAV: Airport = { city: 'La Habana', iata: 'HAV', timeZone: 'America/Havana' };
+
+/** Airports referenced by the approved connections, keyed by IATA. */
+export const AIRPORTS: Record<string, Airport> = {
+  SDQ,
+  JBQ,
+  SJU,
+  AUA,
+  MIA,
+  BOG,
+  HAV,
+};
 
 export const SCHEDULED_SERVICES: ScheduledService[] = [
   // SDQ <-> SJU

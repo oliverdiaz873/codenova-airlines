@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { localDateTimeToUtc } from '@/lib/dates';
 import type { FlightUpdates } from '@/lib/flightUpdate';
+import type { ConnectionUpdates } from '@/lib/connectionUpdate';
 import {
   buildSearchSelection,
+  canContinueSearch,
   isValidSearchSelection,
+  matchesDepartureTimeSlot,
   searchFlights,
+  suggestAlternativeDates,
   type SearchCriteria,
   type SearchSelection,
 } from '@/lib/flightSearch';
@@ -255,6 +259,360 @@ describe('isValidSearchSelection — coherence with SCHEDULED_SERVICES', () => {
     const s = clone();
     s.outbound.arrivalNextDay = true; // real arrival is same-day
     expect(isValidSearchSelection(s)).toBe(false);
+  });
+});
+
+describe('CU-03 — departure time slot (PR #1)', () => {
+  const criteria: SearchCriteria = {
+    routeId: 'sdq-sju',
+    departureDate: '2026-11-09',
+    returnDate: '2026-11-11',
+    adults: 1,
+    children: 0,
+    infants: 0,
+  };
+
+  it('returns every outbound occurrence when no slot is chosen', () => {
+    expect(searchFlights(criteria, '2026-11-02').outbound).toHaveLength(2);
+    expect(
+      searchFlights({ ...criteria, departureTimeSlot: 'any' }, '2026-11-02')
+        .outbound,
+    ).toHaveLength(2);
+  });
+
+  it('matchesDepartureTimeSlot covers the three ranges and overnight', () => {
+    expect(matchesDepartureTimeSlot('08:00', 'morning')).toBe(true);
+    expect(matchesDepartureTimeSlot('12:00', 'morning')).toBe(false);
+    expect(matchesDepartureTimeSlot('12:00', 'afternoon')).toBe(true);
+    expect(matchesDepartureTimeSlot('18:00', 'evening')).toBe(true);
+    expect(matchesDepartureTimeSlot('04:59', 'evening')).toBe(true);
+    expect(matchesDepartureTimeSlot('05:00', 'evening')).toBe(false);
+    expect(matchesDepartureTimeSlot('23:59', undefined)).toBe(true);
+  });
+
+  it('filters outbound occurrences inside the slot', () => {
+    const morning = searchFlights(
+      { ...criteria, departureTimeSlot: 'morning' },
+      '2026-11-02',
+    );
+    expect(morning.outbound.map((o) => o.service.flightNumber)).toEqual([
+      'CN101',
+    ]);
+    expect(morning.outbound[0].departureTime).toBe('08:00');
+  });
+
+  it('keeps the afternoon departure CN103 at 17:00', () => {
+    const afternoon = searchFlights(
+      { ...criteria, departureTimeSlot: 'afternoon' },
+      '2026-11-02',
+    );
+    expect(afternoon.outbound.map((o) => o.service.flightNumber)).toEqual([
+      'CN103',
+    ]);
+  });
+
+  it('returns no outbound options when no departure matches the slot', () => {
+    const none = searchFlights(
+      { ...criteria, departureTimeSlot: 'evening' },
+      '2026-11-02',
+    );
+    expect(none.outbound).toHaveLength(0);
+  });
+
+  it('does not filter the return leg', () => {
+    const results = searchFlights(
+      { ...criteria, departureTimeSlot: 'morning' },
+      '2026-11-02',
+    );
+    // CN102 departs SJU at 10:30; the slot applies to the outbound leg only.
+    expect(results.returnOptions.map((o) => o.service.flightNumber)).toContain(
+      'CN102',
+    );
+  });
+
+  it('filters by the effective CU-07 schedule, not the base one', () => {
+    const departureMs = localDateTimeToUtc(
+      '2026-11-09',
+      '08:00',
+      'America/Santo_Domingo',
+    ).getTime();
+    // Move CN101 08:00 -> 12:30 so it leaves the morning slot: the filter
+    // must use the effective schedule, not the base one.
+    const afternoonUpdates: FlightUpdates = {
+      CN101: [
+        {
+          departureLocal: '12:30',
+          durationMinutes: 90,
+          effectiveAtMs: departureMs - 1_000,
+        },
+      ],
+    };
+    // Base schedule would keep CN101 in the morning slot; the update moves
+    // it to the afternoon, so morning returns nothing and afternoon both.
+    expect(
+      searchFlights(
+        { ...criteria, departureTimeSlot: 'morning' },
+        '2026-11-02',
+        afternoonUpdates,
+      ).outbound,
+    ).toEqual([]);
+    expect(
+      searchFlights(
+        { ...criteria, departureTimeSlot: 'afternoon' },
+        '2026-11-02',
+        afternoonUpdates,
+      ).outbound.map((o) => o.service.flightNumber),
+    ).toEqual(['CN101', 'CN103']);
+  });
+
+  it('blocks continuing when the selected outbound is outside the slot', () => {
+    const results = searchFlights(criteria, '2026-11-02');
+    expect(
+      canContinueSearch(
+        { ...criteria, departureTimeSlot: 'evening' },
+        results.outbound[0],
+        results.returnOptions[0],
+      ),
+    ).toBe(false);
+    expect(
+      canContinueSearch(criteria, results.outbound[0], results.returnOptions[0]),
+    ).toBe(true);
+  });
+
+  it('only suggests dates with an outbound inside the slot', () => {
+    const suggestions = suggestAlternativeDates(
+      { ...criteria, departureTimeSlot: 'afternoon' },
+      '2026-11-02',
+      3,
+    );
+    expect(suggestions.length).toBeGreaterThan(0);
+    for (const date of suggestions) {
+      const day = searchFlights(
+        { ...criteria, departureTimeSlot: 'afternoon', departureDate: date },
+        '2026-11-02',
+      );
+      expect(day.outbound.map((o) => o.service.flightNumber)).toEqual(['CN103']);
+    }
+
+    // A slot with no scheduled departure produces no suggestions.
+    expect(
+      suggestAlternativeDates(
+        { ...criteria, departureTimeSlot: 'evening' },
+        '2026-11-02',
+        3,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('CU-07 — availability in search results', () => {
+  const criteria: SearchCriteria = {
+    routeId: 'sdq-sju',
+    departureDate: '2026-11-09',
+    returnDate: '2026-11-11',
+    adults: 1,
+    children: 0,
+    infants: 0,
+  };
+  const departureMs = localDateTimeToUtc(
+    '2026-11-09',
+    '08:00',
+    'America/Santo_Domingo',
+  ).getTime();
+  const updates: FlightUpdates = {
+    CN101: [
+      {
+        departureLocal: '08:00',
+        durationMinutes: 75,
+        available: false,
+        effectiveAtMs: departureMs - 1_000,
+      },
+    ],
+  };
+
+  it('marks every occurrence available by default', () => {
+    const results = searchFlights(criteria, '2026-11-02');
+    expect(results.outbound.every((o) => o.available)).toBe(true);
+    expect(results.returnOptions.every((o) => o.available)).toBe(true);
+  });
+
+  it('keeps the unavailable flight listed but flagged (D-8)', () => {
+    const results = searchFlights(criteria, '2026-11-02', updates);
+    const cn101 = results.outbound.find(
+      (o) => o.service.flightNumber === 'CN101',
+    )!;
+    expect(cn101.available).toBe(false);
+    expect(results.outbound).toHaveLength(2);
+  });
+
+  it('blocks continuing with an unavailable outbound or return', () => {
+    const results = searchFlights(criteria, '2026-11-02', updates);
+    const cn101 = results.outbound.find(
+      (o) => o.service.flightNumber === 'CN101',
+    )!;
+    expect(
+      canContinueSearch(criteria, cn101, results.returnOptions[0]),
+    ).toBe(false);
+
+    const returnUpdates: FlightUpdates = {
+      CN102: [
+        {
+          departureLocal: '10:30',
+          durationMinutes: 75,
+          available: false,
+          effectiveAtMs:
+            localDateTimeToUtc(
+              '2026-11-11',
+              '10:30',
+              'America/Santo_Domingo',
+            ).getTime() - 1_000,
+        },
+      ],
+    };
+    const withReturn = searchFlights(criteria, '2026-11-02', returnUpdates);
+    expect(
+      canContinueSearch(criteria, withReturn.outbound[0], withReturn.returnOptions[0]),
+    ).toBe(false);
+  });
+
+  it('keeps the availability of a past occurrence historical', () => {
+    const past = searchFlights(
+      { ...criteria, departureDate: '2026-11-06', returnDate: '2026-11-09' },
+      '2026-11-02',
+      updates,
+    );
+    // The update was recorded just before the 11-09 departure, so the
+    // 11-06 occurrence keeps its historical (available) state.
+    expect(
+      past.outbound.find((o) => o.service.flightNumber === 'CN101')!.available,
+    ).toBe(true);
+  });
+});
+
+describe('CU-07 — connection destination (D-6/D-7)', () => {
+  const criteria: SearchCriteria = {
+    routeId: 'sdq-sju',
+    departureDate: '2026-11-09',
+    returnDate: '2026-11-11',
+    adults: 1,
+    children: 0,
+    infants: 0,
+  };
+  const departureMs = localDateTimeToUtc(
+    '2026-11-09',
+    '08:00',
+    'America/Santo_Domingo',
+  ).getTime();
+  const updates: ConnectionUpdates = {
+    'sdq-sju': [
+      { destinationIata: 'MIA', effectiveAtMs: departureMs - 1_000 },
+    ],
+  };
+
+  it('moves both legs and the fare to the effective destination', () => {
+    const results = searchFlights(criteria, '2026-11-02', undefined, updates);
+    expect(
+      results.outbound.every(
+        (o) => o.service.origin.iata === 'SDQ' && o.service.destination.iata === 'MIA',
+      ),
+    ).toBe(true);
+    expect(
+      results.returnOptions.every(
+        (o) => o.service.origin.iata === 'MIA' && o.service.destination.iata === 'SDQ',
+      ),
+    ).toBe(true);
+    expect(
+      results.outbound.every((o) => o.farePerPassenger === 9_900),
+    ).toBe(true);
+    expect(
+      results.returnOptions.every((o) => o.farePerPassenger === 9_900),
+    ).toBe(true);
+  });
+
+  it('keeps the base route when the first departure already left', () => {
+    const late: ConnectionUpdates = {
+      'sdq-sju': [
+        { destinationIata: 'MIA', effectiveAtMs: departureMs + 1_000 },
+      ],
+    };
+    const results = searchFlights(criteria, '2026-11-02', undefined, late);
+    expect(results.outbound[0].service.destination.iata).toBe('SJU');
+    expect(results.outbound[0].farePerPassenger).toBe(7_900);
+  });
+
+  it('builds a selection with effective labels and fare', () => {
+    const results = searchFlights(criteria, '2026-11-02', undefined, updates);
+    const selection = buildSearchSelection(
+      criteria,
+      results.outbound[0],
+      results.returnOptions[0],
+    )!;
+    expect(selection.destinationLabel).toBe('Miami (MIA)');
+    expect(selection.outbound.destinationLabel).toBe('Miami (MIA)');
+    expect(selection.returnFlight.originLabel).toBe('Miami (MIA)');
+    expect(selection.outbound.fare).toBe(9_900);
+    expect(selection.totalPrice).toBe(19_800);
+    expect(isValidSearchSelection(selection, undefined, updates)).toBe(true);
+    // The same selection is stale against the base catalog.
+    expect(isValidSearchSelection(selection)).toBe(false);
+  });
+
+  it('rejects a selection captured before the destination change', () => {
+    const baseResults = searchFlights(criteria, '2026-11-02');
+    const stale = buildSearchSelection(
+      criteria,
+      baseResults.outbound[0],
+      baseResults.returnOptions[0],
+    )!;
+    expect(isValidSearchSelection(stale, undefined, updates)).toBe(false);
+  });
+
+  it('keeps a past trip bookable at its historical route and fare', () => {
+    const past = { ...criteria, departureDate: '2026-11-06', returnDate: '2026-11-09' };
+    const results = searchFlights(past, '2026-11-02', undefined, updates);
+    const selection = buildSearchSelection(
+      past,
+      results.outbound[0],
+      results.returnOptions[0],
+    )!;
+    expect(selection.destinationLabel).toBe('San Juan (SJU)');
+    expect(selection.totalPrice).toBe(15_800);
+    expect(isValidSearchSelection(selection, undefined, updates)).toBe(true);
+  });
+
+  it('suggests dates whose effective pair is consistent', () => {
+    const suggestions = suggestAlternativeDates(
+      criteria,
+      '2026-11-02',
+      2,
+      undefined,
+      updates,
+    );
+    expect(suggestions.length).toBeGreaterThan(0);
+    for (const date of suggestions) {
+      const day = searchFlights(
+        { ...criteria, departureDate: date },
+        '2026-11-02',
+        undefined,
+        updates,
+      );
+      expect(
+        day.outbound.every((o) => o.service.destination.iata === 'MIA'),
+      ).toBe(true);
+    }
+  });
+
+  it('keeps the departure slot applied to the effective pair', () => {
+    const results = searchFlights(
+      { ...criteria, departureTimeSlot: 'afternoon' },
+      '2026-11-02',
+      undefined,
+      updates,
+    );
+    expect(results.outbound.map((o) => o.service.flightNumber)).toEqual([
+      'CN103',
+    ]);
+    expect(results.outbound[0].service.destination.iata).toBe('MIA');
   });
 });
 

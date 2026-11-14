@@ -1,0 +1,40 @@
+%% CU-06 — Cancelar reservación
+%% Fuente editable Mermaid. Render SVG: sec-02-cu06-cancelar-reservacion.svg
+sequenceDiagram
+    actor Cliente
+    participant Lista as /panel/reservas (CU-06)
+    participant Detalle as /panel/reservas/:code
+    participant Provider as BookingProvider
+    participant Cancel as applyPurchaseCancellation
+    participant Asientos as Ocupación de asientos
+    participant Millas as Reglas de millas
+
+    Cliente->>Lista: consulta sus reservaciones
+    Lista->>Provider: purchases del cliente activo
+    Provider-->>Lista: lista filtrada por customerEmail
+    Cliente->>Detalle: abre reserva CN-XXXX
+    Detalle->>Provider: purchaseLegs + isCancellationEligible + cancelDeadlineUtcMs (flightUpdates)
+    Provider-->>Detalle: itinerario con horario vigente + plazo 168 h
+    Cliente->>Detalle: solicita cancelación
+
+    Detalle->>Provider: cancelPurchase(code)
+    Provider->>Cancel: applyPurchaseCancellation(purchases, activeEmail, code, nowMs, flightUpdates)
+
+    Cancel->>Cancel: verifica titularidad y status 'confirmada'
+    alt No es propia, ya cancelada o inexistente
+        Cancel-->>Provider: error — sin cambios
+    else Válida
+        Cancel->>Cancel: resuelve 1er vuelo por fecha (salida local origen)
+        Cancel->>Cancel: isCancellationEligible: ahora ≤ salida − 168 h (inclusive)
+        alt Fuera de plazo (> 168 h)
+            Cancel-->>Provider: error «no procede la cancelación» — sin cambios
+        else Dentro de plazo
+            Cancel->>Cancel: refundAmount = round(netTotal × 0.80)
+            Cancel->>Cancel: nuevo Purchase: status 'cancelada', cancelledAtMs, refundAmount
+            Cancel-->>Provider: purchases actualizadas (commit atómico)
+            Note over Asientos: los asientos se liberan implícitamente:<br/>la ocupación solo cuenta compras 'confirmada'
+            Note over Millas: sin reversión: millas canjeadas no vuelven,<br/>acreditadas no se revierten (D-5)
+            Provider-->>Detalle: resultado ok
+            Detalle-->>Cliente: reserva cancelada + reembolso mostrado
+        end
+    end

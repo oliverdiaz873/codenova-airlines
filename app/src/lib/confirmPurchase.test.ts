@@ -15,6 +15,9 @@ import {
   type SearchSelection,
 } from '@/lib/flightSearch';
 import { applyFlightUpdate, type FlightUpdates } from '@/lib/flightUpdate';
+import { localDateTimeToUtc } from '@/lib/dates';
+import type { ConnectionUpdates } from '@/lib/connectionUpdate';
+import { buildDemoPurchases } from '@/lib/demoPurchases';
 
 const corporate: DemoCustomer = {
   email: 'corporativo@codenova.demo',
@@ -168,8 +171,9 @@ describe('applyPurchaseConfirmation — atomicity on failure', () => {
       departureDate: '2026-11-04',
       returnDate: '2026-11-11',
     });
+    // D-11: the demo reservations are real purchases seeded into the store.
     const result = confirm(
-      [],
+      buildDemoPurchases(REF),
       makeInput({ outbound: ['1A'], return: ['5B'] }, 0, selection),
     );
     expect(result.ok).toBe(false);
@@ -531,6 +535,202 @@ describe('CU-07 — schedule updates at confirmation', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.purchase.components[0].flightNumber).toBe('CN101');
+  });
+});
+
+describe('CU-04 — unavailable flight at confirmation (atomicity)', () => {
+  const cn101DepMs = localDateTimeToUtc(
+    '2026-11-09',
+    '08:00',
+    'America/Santo_Domingo',
+  ).getTime();
+  const updates: FlightUpdates = {
+    CN101: [
+      {
+        departureLocal: '08:00',
+        durationMinutes: 75,
+        available: false,
+        effectiveAtMs: cn101DepMs - 1_000,
+      },
+    ],
+  };
+
+  it('rejects the confirmation with the availability message', () => {
+    const result = applyPurchaseConfirmation(
+      [],
+      customers,
+      corporate.email,
+      makeInput(),
+      NOW,
+      REF,
+      updates,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe(
+      'El vuelo CN101 del 2026-11-09 no está disponible para reservar.',
+    );
+  });
+
+  it('creates no purchase, occupies no seat and consumes no code', () => {
+    const purchases: Purchase[] = [];
+    const before = JSON.stringify({ purchases, customers });
+    const blocked = applyPurchaseConfirmation(
+      purchases,
+      customers,
+      corporate.email,
+      makeInput(),
+      NOW,
+      REF,
+      updates,
+    );
+    expect(blocked.ok).toBe(false);
+    expect(JSON.stringify({ purchases, customers })).toBe(before);
+
+    // A later confirmation without the availability block still gets CN-0001
+    // and the same seats: nothing from the failed attempt was reserved.
+    const ok = applyPurchaseConfirmation(
+      purchases,
+      customers,
+      corporate.email,
+      makeInput(),
+      NOW,
+      REF,
+    );
+    expect(ok.ok).toBe(true);
+    if (!ok.ok) return;
+    expect(ok.purchase.code).toBe('CN-0001');
+    expect(ok.purchase.components.map((c) => c.seatId)).toEqual([
+      '5A',
+      '5B',
+    ]);
+  });
+
+  it('rejects an unavailable return flight too', () => {
+    const cn102DepMs = localDateTimeToUtc(
+      '2026-11-16',
+      '10:30',
+      'America/Puerto_Rico',
+    ).getTime();
+    const returnOnly: FlightUpdates = {
+      CN102: [
+        {
+          departureLocal: '10:30',
+          durationMinutes: 75,
+          available: false,
+          effectiveAtMs: cn102DepMs - 1_000,
+        },
+      ],
+    };
+    const result = applyPurchaseConfirmation(
+      [],
+      customers,
+      corporate.email,
+      makeInput(),
+      NOW,
+      REF,
+      returnOnly,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('CN102');
+  });
+});
+
+describe('CU-07 — connection destination at confirmation', () => {
+  const criteria = {
+    routeId: 'sdq-sju',
+    departureDate: '2026-11-09',
+    returnDate: '2026-11-16',
+    adults: 1,
+    children: 0,
+    infants: 0,
+  };
+  const departureMs = localDateTimeToUtc(
+    '2026-11-09',
+    '08:00',
+    'America/Santo_Domingo',
+  ).getTime();
+  const updates: ConnectionUpdates = {
+    'sdq-sju': [
+      { destinationIata: 'MIA', effectiveAtMs: departureMs - 1_000 },
+    ],
+  };
+
+  function selectionFor(
+    connectionUpdates?: ConnectionUpdates,
+  ): SearchSelection {
+    const results = searchFlights(
+      criteria,
+      REF,
+      undefined,
+      connectionUpdates,
+    );
+    const selection = buildSearchSelection(
+      criteria,
+      results.outbound[0],
+      results.returnOptions[0],
+    );
+    if (!selection) throw new Error('Expected a valid selection');
+    return selection;
+  }
+
+  it('confirms at the new fare and stores the airport snapshots', () => {
+    const result = applyPurchaseConfirmation(
+      [],
+      customers,
+      corporate.email,
+      makeInput(undefined, 0, selectionFor(updates)),
+      NOW,
+      REF,
+      undefined,
+      updates,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.purchase.grossTotal).toBe(19_800);
+    const outbound = result.purchase.components.find((c) => c.leg === 'ida');
+    const returning = result.purchase.components.find(
+      (c) => c.leg === 'vuelta',
+    );
+    expect(outbound?.originAirport?.iata).toBe('SDQ');
+    expect(outbound?.destinationAirport?.iata).toBe('MIA');
+    expect(returning?.originAirport?.iata).toBe('MIA');
+    expect(returning?.destinationAirport?.iata).toBe('SDQ');
+  });
+
+  it('rejects a stale selection without creating anything', () => {
+    const purchases: Purchase[] = [];
+    const result = applyPurchaseConfirmation(
+      purchases,
+      customers,
+      corporate.email,
+      makeInput(undefined, 0, selectionFor()),
+      NOW,
+      REF,
+      undefined,
+      updates,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe(
+      'La información del vuelo cambió; realiza una nueva búsqueda.',
+    );
+    expect(purchases).toEqual([]);
+    // The failed attempt consumed no code: the next valid sale gets CN-0001.
+    const ok = applyPurchaseConfirmation(
+      purchases,
+      customers,
+      corporate.email,
+      makeInput(undefined, 0, selectionFor(updates)),
+      NOW,
+      REF,
+      undefined,
+      updates,
+    );
+    expect(ok.ok).toBe(true);
+    if (!ok.ok) return;
+    expect(ok.purchase.code).toBe('CN-0001');
   });
 });
 

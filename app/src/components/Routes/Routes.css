@@ -198,6 +198,31 @@
   font-style: italic;
 }
 
+/* ---- Empty catalog (CU-01 alternate flow) ---- */
+.routes__empty {
+  max-width: 36rem;
+  margin: var(--space-lg) auto 0;
+  padding: var(--space-xl);
+  border: 1px dashed var(--cn-gray-100);
+  border-radius: var(--radius-md);
+  background: #fff;
+  text-align: center;
+}
+
+.routes__empty-title {
+  color: var(--cn-navy);
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.routes__empty-text {
+  margin-top: var(--space-sm);
+  color: var(--cn-gray-600);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
 /* ---- Note ---- */
 .routes__note {
   text-align: center;

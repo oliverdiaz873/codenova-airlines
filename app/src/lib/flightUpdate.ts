@@ -35,6 +35,8 @@ import {
 export interface FlightServiceUpdate {
   departureLocal: string;
   durationMinutes: number;
+  /** CU-07 availability; older versions without the field mean available. */
+  available?: boolean;
   effectiveAtMs: number;
 }
 
@@ -47,6 +49,7 @@ export type FlightUpdates = Partial<
 export interface FlightUpdateChanges {
   departureLocal?: string;
   durationMinutes?: number;
+  available?: boolean;
 }
 
 export type ApplyFlightUpdateResult =
@@ -71,14 +74,19 @@ const NO_CHANGES = 'No hay cambios que guardar.';
 function currentScheduleFields(
   service: ScheduledService,
   updates: readonly FlightServiceUpdate[] | undefined,
-): { departureLocal: string; durationMinutes: number } {
+): { departureLocal: string; durationMinutes: number; available: boolean } {
   const latest = updates && updates.length > 0 ? updates[updates.length - 1] : undefined;
   return latest
     ? {
         departureLocal: latest.departureLocal,
         durationMinutes: latest.durationMinutes,
+        available: latest.available !== false,
       }
-    : { departureLocal: service.departureLocal, durationMinutes: service.durationMinutes };
+    : {
+        departureLocal: service.departureLocal,
+        durationMinutes: service.durationMinutes,
+        available: service.available !== false,
+      };
 }
 
 /**
@@ -130,13 +138,23 @@ export function applyFlightUpdate(
     }
     provided.durationMinutes = changes.durationMinutes;
   }
+  if (changes.available !== undefined) {
+    if (typeof changes.available !== 'boolean') {
+      return {
+        ok: false,
+        error: 'La disponibilidad debe indicarse como verdadera o falsa.',
+      };
+    }
+    provided.available = changes.available;
+  }
 
   const history = flightUpdates[flightNumber];
   const current = currentScheduleFields(service, history);
   const merged = { ...current, ...provided };
   if (
     merged.departureLocal === current.departureLocal &&
-    merged.durationMinutes === current.durationMinutes
+    merged.durationMinutes === current.durationMinutes &&
+    merged.available === current.available
   ) {
     return { ok: false, error: NO_CHANGES };
   }
@@ -145,6 +163,7 @@ export function applyFlightUpdate(
   const update: FlightServiceUpdate = {
     departureLocal: merged.departureLocal,
     durationMinutes: merged.durationMinutes,
+    available: merged.available,
     effectiveAtMs: previous
       ? Math.max(nowMs, previous.effectiveAtMs)
       : nowMs,
@@ -196,6 +215,7 @@ export function serviceForDate(
 
   let departureLocal = service.departureLocal;
   let durationMinutes = service.durationMinutes;
+  let available = service.available !== false;
   let changed = false;
 
   for (const update of updates) {
@@ -205,11 +225,12 @@ export function serviceForDate(
     }
     departureLocal = update.departureLocal;
     durationMinutes = update.durationMinutes;
+    available = update.available !== false;
     changed = true;
   }
 
   return changed
-    ? { ...service, departureLocal, durationMinutes }
+    ? { ...service, departureLocal, durationMinutes, available }
     : service;
 }
 
@@ -234,7 +255,7 @@ export function scheduledServiceForDate(
 export function currentScheduleFieldsForService(
   service: ScheduledService,
   updates: readonly FlightServiceUpdate[] | undefined,
-): { departureLocal: string; durationMinutes: number } {
+): { departureLocal: string; durationMinutes: number; available: boolean } {
   return currentScheduleFields(service, updates);
 }
 

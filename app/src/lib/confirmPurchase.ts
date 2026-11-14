@@ -13,15 +13,15 @@ import { todayISO } from '@/lib/dates';
 import { applyDueAccrual } from '@/lib/accrual';
 import {
   buildPurchase,
-  nextReservationCode,
+  nextUserReservationCode,
   validatePurchase,
   type LegSeatSelection,
   type Purchase,
 } from '@/lib/booking';
 import type { SearchSelection } from '@/lib/flightSearch';
 import type { FlightUpdates } from '@/lib/flightUpdate';
+import type { ConnectionUpdates } from '@/lib/connectionUpdate';
 import {
-  demoOccupiedSeats,
   userOccupiedSeats,
   validateSeatAvailability,
   type SeatRequest,
@@ -80,11 +80,11 @@ function seatRequestsFor(
  * Confirms a purchase atomically. Order of evaluation:
  *  1. Lazy mileage accrual (H-2.1) so the redemption check sees balances
  *     after every due credit, independent of any visual sync.
- *  2. Seat availability rebuilt from the freshest purchases plus demo
- *     occupancy (M-2), per flight|date; cancelled purchases free seats.
+ *  2. Seat availability rebuilt from the freshest purchases (M-2), per
+ *     flight|date; cancelled purchases free seats.
  *  3. Purchase rules against the post-accrual customer balance.
- *  4. buildPurchase with the code derived from purchases.length + 1
- *     (cancelled purchases keep their code; failures consume none).
+ *  4. buildPurchase with the next user code (D-10: demo `CN-9xxx` codes
+ *     are excluded from the visible sequence; failures consume none).
  *  5. Redeemed miles deducted in the same transition.
  */
 export function applyPurchaseConfirmation(
@@ -95,7 +95,12 @@ export function applyPurchaseConfirmation(
   nowMs: number,
   referenceDateISO: string = todayISO(),
   flightUpdates?: FlightUpdates,
+  connectionUpdates?: ConnectionUpdates,
 ): ConfirmPurchaseResult {
+  // D-11: availability derives from the purchases themselves (the demo
+  // reservations are seeded as purchases), so no reference date is needed.
+  // The parameter stays in the signature for existing callers.
+  void referenceDateISO;
   if (typeof input !== 'object' || input === null) {
     return { ok: false, error: 'Los datos de la compra no son válidos.' };
   }
@@ -105,7 +110,6 @@ export function applyPurchaseConfirmation(
 
   const availabilityError = validateSeatAvailability(
     seatRequestsFor(input.selection, input.seats),
-    demoOccupiedSeats(referenceDateISO),
     userOccupiedSeats(accruedPurchases),
   );
   if (availabilityError) return { ok: false, error: availabilityError };
@@ -126,10 +130,11 @@ export function applyPurchaseConfirmation(
     input.milesUsed,
     customer,
     flightUpdates,
+    connectionUpdates,
   );
   if (purchaseError) return { ok: false, error: purchaseError };
 
-  const code = nextReservationCode(accruedPurchases.length + 1);
+  const code = nextUserReservationCode(accruedPurchases);
   const purchase = buildPurchase(
     input.selection,
     input.seats,
@@ -137,6 +142,7 @@ export function applyPurchaseConfirmation(
     customer,
     code,
     flightUpdates,
+    connectionUpdates,
   );
   if (!purchase) {
     return { ok: false, error: 'No se pudo construir la compra.' };

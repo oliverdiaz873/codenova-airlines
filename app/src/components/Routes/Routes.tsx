@@ -1,6 +1,9 @@
 import { FLIGHT_CONNECTIONS, DAYS_OF_OPERATION, formatCurrency } from '@/data/flights';
+import type { FlightConnection } from '@/data/flights';
 import { SCHEDULED_SERVICES } from '@/data/scheduledServices';
 import { serviceForNextOperatingDate } from '@/lib/flightUpdate';
+import { effectiveConnectionForDate } from '@/lib/connectionUpdate';
+import { todayISO } from '@/lib/dates';
 import { useBooking } from '@/components/BookingProvider/useBooking';
 import type { FlightUpdates } from '@/lib/flightUpdate';
 import './Routes.css';
@@ -30,17 +33,49 @@ function departuresLabel(
   return times.length > 0 ? `Salidas ${times.join(' y ')}` : 'Horario por confirmar';
 }
 
-export function Routes() {
-  const { flightUpdates } = useBooking();
-  const connections = FLIGHT_CONNECTIONS.map((connection) => ({
-    ...connection,
-    scheduleLabel: departuresLabel(
-      connection.id,
-      connection.origin.iata,
+export interface RoutesProps {
+  /**
+   * Catalog entries to show. Defaults to the approved connections; an empty
+   * array renders the CU-01 alternate flow ("información no disponible").
+   */
+  catalog?: FlightConnection[];
+}
+
+export function Routes({ catalog = FLIGHT_CONNECTIONS }: RoutesProps = {}) {
+  const { flightUpdates, connectionUpdates } = useBooking();
+  const connections = catalog.map((connection) => {
+    // D-6: the public catalog shows the destination in effect for the next
+    // operating departure, so it never advertises a route that was changed.
+    const firstOutbound = SCHEDULED_SERVICES.find(
+      (service) =>
+        service.routeId === connection.id &&
+        service.origin.iata === connection.origin.iata,
+    );
+    const referenceDate = firstOutbound
+      ? serviceForNextOperatingDate(firstOutbound, flightUpdates).date
+      : todayISO();
+    const effective = effectiveConnectionForDate(
+      connection,
+      connectionUpdates,
+      referenceDate,
       flightUpdates,
-    ),
-    badge: 'Vuelo directo',
-  }));
+    );
+    const destinationImage = FLIGHT_CONNECTIONS.find(
+      (candidate) =>
+        candidate.destination.iata === effective.destination.iata,
+    )?.image;
+    return {
+      ...effective,
+      id: connection.id,
+      image: destinationImage ?? connection.image,
+      scheduleLabel: departuresLabel(
+        connection.id,
+        connection.origin.iata,
+        flightUpdates,
+      ),
+      badge: 'Vuelo directo',
+    };
+  });
 
   return (
     <section className="routes" id="routes">
@@ -48,9 +83,12 @@ export function Routes() {
         <div className="routes__header">
           <span className="routes__label">Nuestras rutas</span>
           <h2 className="heading-lg routes__title">Conexiones directas</h2>
-          <p className="text-lg routes__subtitle">
-            Cinco conexiones aprobadas. Tarifas con impuestos incluidos.
-          </p>
+          {connections.length > 0 && (
+            <p className="text-lg routes__subtitle">
+              {connections.length} conexiones aprobadas. Tarifas con impuestos
+              incluidos.
+            </p>
+          )}
         </div>
 
         <div className="routes__days">
@@ -60,54 +98,66 @@ export function Routes() {
           ))}
         </div>
 
-        <div className="routes__grid">
-          {connections.map((conn) => (
-            <article className="route-card" key={conn.id} id={`route-${conn.id}`}>
-              <div className="route-card__image">
-                <img
-                  src={conn.image}
-                  alt={`Vista de ${conn.destination.city}`}
-                  loading="lazy"
-                />
-                <span className="route-card__badge">
-                  {conn.badge}
-                </span>
-              </div>
-
-              <div className="route-card__body">
-                <div className="route-card__route-display">
-                  <div className="route-card__city">
-                    <div className="route-card__iata">{conn.origin.iata}</div>
-                    <div className="route-card__city-name">{conn.origin.city}</div>
-                  </div>
-
-                  <div className="route-card__divider">
-                    <span className="route-card__divider-line" />
-                    <span className="route-card__divider-icon">✈</span>
-                    <span className="route-card__divider-line" />
-                  </div>
-
-                  <div className="route-card__city">
-                    <div className="route-card__iata">{conn.destination.iata}</div>
-                    <div className="route-card__city-name">{conn.destination.city}</div>
-                  </div>
-                </div>
-
-                <div className="route-card__details">
-                  <div className="route-card__price">
-                    <span className="route-card__price-label">Tarifa fija por pasajero</span>
-                    <span className="route-card__price-value">
-                      {formatCurrency(conn.farePerPassenger)}
-                    </span>
-                  </div>
-                  <span className="route-card__schedule">
-                    {conn.scheduleLabel}
+        {connections.length === 0 ? (
+          <div className="routes__empty" role="status">
+            <p className="routes__empty-title">
+              No hay información de vuelos disponible en este momento.
+            </p>
+            <p className="routes__empty-text">
+              El catálogo público no tiene conexiones para mostrar. Intenta
+              nuevamente más tarde.
+            </p>
+          </div>
+        ) : (
+          <div className="routes__grid">
+            {connections.map((conn) => (
+              <article className="route-card" key={conn.id} id={`route-${conn.id}`}>
+                <div className="route-card__image">
+                  <img
+                    src={conn.image}
+                    alt={`Vista de ${conn.destination.city}`}
+                    loading="lazy"
+                  />
+                  <span className="route-card__badge">
+                    {conn.badge}
                   </span>
                 </div>
-              </div>
-            </article>
-          ))}
-        </div>
+
+                <div className="route-card__body">
+                  <div className="route-card__route-display">
+                    <div className="route-card__city">
+                      <div className="route-card__iata">{conn.origin.iata}</div>
+                      <div className="route-card__city-name">{conn.origin.city}</div>
+                    </div>
+
+                    <div className="route-card__divider">
+                      <span className="route-card__divider-line" />
+                      <span className="route-card__divider-icon">✈</span>
+                      <span className="route-card__divider-line" />
+                    </div>
+
+                    <div className="route-card__city">
+                      <div className="route-card__iata">{conn.destination.iata}</div>
+                      <div className="route-card__city-name">{conn.destination.city}</div>
+                    </div>
+                  </div>
+
+                  <div className="route-card__details">
+                    <div className="route-card__price">
+                      <span className="route-card__price-label">Tarifa fija por pasajero</span>
+                      <span className="route-card__price-value">
+                        {formatCurrency(conn.farePerPassenger)}
+                      </span>
+                    </div>
+                    <span className="route-card__schedule">
+                      {conn.scheduleLabel}
+                    </span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
 
         <p className="routes__note">
           Tarifas de demostración por trayecto, con impuestos incluidos. Mismo

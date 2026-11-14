@@ -1,0 +1,9 @@
+%% CU-01 — Consultar información de vuelo (nivel medio)
+flowchart TD
+    A((Inicio)) --> B[Usuario accede a la landing /]
+    B --> C[Sistema presenta catálogo público de conexiones]
+    C --> D{¿Hay información de vuelos disponible?}
+    D -- Sí --> E[Muestra tarjetas: origen, destino, tarifa, días y próximas salidas vigentes]
+    D -- No --> F[Informa que no hay información disponible]
+    E --> G((Fin))
+    F --> G

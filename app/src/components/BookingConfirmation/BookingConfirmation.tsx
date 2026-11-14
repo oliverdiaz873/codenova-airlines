@@ -135,7 +135,7 @@ const EMAIL_STATUS_MESSAGES: Record<ConfirmationEmailStatus, string> = {
 
 export function BookingConfirmation() {
   const location = useLocation();
-  const { purchases, customers, sendConfirmationEmail, flightUpdates } =
+  const { purchases, customers, sendConfirmationEmail, flightUpdates, connectionUpdates } =
     useBooking();
 
   const state = location.state as {
@@ -143,7 +143,11 @@ export function BookingConfirmation() {
     selection?: unknown;
   } | null;
   const code = typeof state?.code === 'string' ? state.code : null;
-  const selection = isValidSearchSelection(state?.selection, flightUpdates)
+  const selection = isValidSearchSelection(
+    state?.selection,
+    flightUpdates,
+    connectionUpdates,
+  )
     ? state.selection
     : null;
   const purchase = code

@@ -65,17 +65,20 @@ function passengerLabel(component: BookingComponent): string {
 }
 
 /**
- * Direction label for one leg. The scheduled service carries the real
- * origin/destination of that flight; the connection is only a fallback,
- * mirrored for the return leg (same rule as the confirmation email).
+ * Direction label for one leg. The purchase snapshot (D-6) wins so the
+ * historical route is stable; the scheduled service and connection are
+ * fallbacks for fixtures without a snapshot.
  */
 function legRouteLabel(
   purchase: Purchase,
   leg: PurchaseLeg,
   service: ScheduledService | undefined,
+  first: BookingComponent | undefined,
 ): string {
-  if (service) {
-    return `${airportLabel(service.origin)} → ${airportLabel(service.destination)}`;
+  const origin = first?.originAirport ?? service?.origin;
+  const destination = first?.destinationAirport ?? service?.destination;
+  if (origin && destination) {
+    return `${airportLabel(origin)} → ${airportLabel(destination)}`;
   }
   const connection = FLIGHT_CONNECTIONS.find(
     (candidate) => candidate.id === purchase.routeId,
@@ -105,20 +108,19 @@ export function purchaseLegs(
 
     let arrivalTime: string | null = null;
     let arrivalNextDay = false;
-    if (first && service) {
+    const origin = first?.originAirport ?? service?.origin;
+    const destination = first?.destinationAirport ?? service?.destination;
+    if (first && service && origin && destination) {
       try {
         const departureUtc = localDateTimeToUtc(
           first.date,
           service.departureLocal,
-          service.origin.timeZone,
+          origin.timeZone,
         );
         const arrivalUtc = new Date(
           departureUtc.getTime() + service.durationMinutes * 60_000,
         );
-        const arrival = utcToLocalDateTime(
-          arrivalUtc,
-          service.destination.timeZone,
-        );
+        const arrival = utcToLocalDateTime(arrivalUtc, destination.timeZone);
         arrivalTime = arrival.time;
         arrivalNextDay = arrival.date !== first.date;
       } catch {
@@ -130,7 +132,7 @@ export function purchaseLegs(
       leg,
       label: LEG_LABELS[leg],
       flightNumber: first?.flightNumber ?? '',
-      routeLabel: legRouteLabel(purchase, leg, service),
+      routeLabel: legRouteLabel(purchase, leg, service, first),
       date: first?.date ?? '',
       departureTime: service?.departureLocal ?? null,
       arrivalTime,

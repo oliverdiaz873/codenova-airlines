@@ -1,0 +1,16 @@
+%% CU-02 — Registrar cliente (nivel medio)
+flowchart TD
+    A((Inicio)) --> B[Visitante selecciona Registrar cliente en /ingresar]
+    B --> C[Sistema muestra formulario: nombre, correo, tipo; compañía si corporativo]
+    C --> D[Visitante envía el formulario]
+    D --> E{¿Datos completos y correo único?}
+    E -- No, faltan datos --> F[Señala la información faltante y solicita completarla]
+    F --> D
+    E -- No, correo ya registrado --> G[Informa que el correo ya existe; permite corregir]
+    G --> D
+    E -- Sí --> H{¿Clasificación?}
+    H -- Corporativo --> I[Registra cliente Corporativo con nombre de compañía]
+    H -- Minorista --> J[Registra cliente Minorista]
+    I --> K[Cliente queda registrado con 0 millas; sesión simulada iniciada]
+    J --> K
+    K --> L((Fin))

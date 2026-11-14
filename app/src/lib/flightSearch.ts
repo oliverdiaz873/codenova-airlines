@@ -4,14 +4,12 @@
  *
  * Pure functions only: searching never mutates availability and never
  * reserves seats. Availability is deterministic per flight occurrence and
- * date, reduced only by the demonstration bookings in demoReservations.ts.
+ * date, reduced only by the occupied seats derived from confirmed purchases
+ * (which include the demonstration reservations, D-11).
  */
 
-import { FLIGHT_CONNECTIONS } from '@/data/flights';
-import {
-  buildOccupancyMap,
-  SEARCH_HORIZON_DAYS,
-} from '@/data/demoReservations';
+import { FLIGHT_CONNECTIONS, type FlightConnection } from '@/data/flights';
+import { SEARCH_HORIZON_DAYS } from '@/data/demoReservations';
 import {
   SCHEDULED_SERVICES,
   type ScheduledService,
@@ -21,6 +19,14 @@ import {
   serviceForDate,
   type FlightUpdates,
 } from '@/lib/flightUpdate';
+import {
+  effectiveConnectionForDate,
+  serviceForConnection,
+  type ConnectionUpdates,
+} from '@/lib/connectionUpdate';
+import { buildDemoPurchases } from '@/lib/demoPurchases';
+import { occupiedSeatCounts } from '@/lib/seatOccupancy';
+import type { Purchase } from '@/lib/booking';
 import {
   addDaysISO,
   isOperatingDate,
@@ -33,6 +39,40 @@ import {
 export const MAX_SEATS_PER_OCCURRENCE = 30;
 export const MAX_PASSENGERS_PER_SEARCH = 30;
 export { SEARCH_HORIZON_DAYS };
+
+/**
+ * CU-03 (Paso 3.2 / Paso 5): the customer searches by destino y hora de
+ * partida. The departure time is chosen as a time-of-day range at the
+ * origin (local time) and applies to the outbound leg.
+ */
+export type DepartureTimeSlot = 'any' | 'morning' | 'afternoon' | 'evening';
+
+export const DEPARTURE_TIME_SLOTS: readonly {
+  value: DepartureTimeSlot;
+  label: string;
+}[] = [
+  { value: 'any', label: 'Cualquier hora' },
+  { value: 'morning', label: 'Mañana (05:00 – 11:59)' },
+  { value: 'afternoon', label: 'Tarde (12:00 – 17:59)' },
+  { value: 'evening', label: 'Noche (18:00 – 04:59)' },
+];
+
+/** Whether a local 'HH:mm' departure time falls inside the chosen range. */
+export function matchesDepartureTimeSlot(
+  time: string,
+  slot: DepartureTimeSlot | undefined,
+): boolean {
+  if (!slot || slot === 'any') return true;
+  const [hours, minutes] = time.split(':').map(Number);
+  const totalMinutes = hours * 60 + minutes;
+  if (slot === 'morning') return totalMinutes >= 5 * 60 && totalMinutes < 12 * 60;
+  if (slot === 'afternoon') return totalMinutes >= 12 * 60 && totalMinutes < 18 * 60;
+  return totalMinutes >= 18 * 60 || totalMinutes < 5 * 60;
+}
+
+export function departureTimeSlotLabel(slot: DepartureTimeSlot): string {
+  return DEPARTURE_TIME_SLOTS.find((option) => option.value === slot)?.label ?? '';
+}
 
 export interface PassengerCounts {
   adults: number;
@@ -47,6 +87,8 @@ export interface SearchCriteria extends PassengerCounts {
   departureDate: string;
   /** 'YYYY-MM-DD' local departure date at the destination. */
   returnDate: string;
+  /** Outbound departure time range (CU-03 "hora de partida"). Defaults to 'any'. */
+  departureTimeSlot?: DepartureTimeSlot;
 }
 
 export interface FlightOccurrence {
@@ -62,6 +104,10 @@ export interface FlightOccurrence {
   /** Whether the local arrival date differs from the departure date. */
   arrivalNextDay: boolean;
   durationMinutes: number;
+  /** CU-07 availability; false only when an agent marked it unavailable. */
+  available: boolean;
+  /** Effective fare per passenger for this occurrence (D-7). */
+  farePerPassenger: number;
   /** Seats still available for this occurrence (30 minus demo bookings). */
   availableSeats: number;
 }
@@ -101,18 +147,24 @@ export function totalPassengers(counts: PassengerCounts): number {
 }
 
 function servicesForDirection(
-  routeId: string,
-  iata: string,
+  connection: FlightConnection,
+  direction: 'outbound' | 'return',
 ): ScheduledService[] {
-  return SCHEDULED_SERVICES.filter(
-    (service) => service.routeId === routeId && service.origin.iata === iata,
-  );
+  return SCHEDULED_SERVICES.filter((service) => {
+    if (service.routeId !== connection.id) return false;
+    // Classify by the stored base direction, so the result stays stable
+    // after a CU-07 destination override rewrites the airport.
+    return direction === 'outbound'
+      ? service.origin.iata === connection.origin.iata
+      : service.destination.iata === connection.origin.iata;
+  });
 }
 
 function buildOccurrence(
   service: ScheduledService,
   date: string,
   occupancy: Map<string, number>,
+  farePerPassenger: number,
   flightUpdates?: FlightUpdates,
 ): FlightOccurrence | null {
   if (!isOperatingDate(date)) return null;
@@ -140,6 +192,8 @@ function buildOccurrence(
     arrivalTime: arrival.time,
     arrivalNextDay: arrival.date !== date,
     durationMinutes: resolved.durationMinutes,
+    available: resolved.available !== false,
+    farePerPassenger,
     availableSeats: MAX_SEATS_PER_OCCURRENCE - occupied,
   };
 }
@@ -157,22 +211,60 @@ export function searchFlights(
   criteria: SearchCriteria,
   referenceDateISO: string = todayISO(),
   flightUpdates?: FlightUpdates,
+  connectionUpdates?: ConnectionUpdates,
+  purchases?: readonly Purchase[],
 ): FlightSearchResults {
   const connection = FLIGHT_CONNECTIONS.find((c) => c.id === criteria.routeId);
   if (!connection) return { outbound: [], returnOptions: [] };
 
-  const occupancy = buildOccupancyMap(referenceDateISO);
+  // CU-07 (D-6): resolve the effective connection once for the whole trip,
+  // using the outbound departure date, so both legs share the destination.
+  const effective = effectiveConnectionForDate(
+    connection,
+    connectionUpdates,
+    criteria.departureDate,
+    flightUpdates,
+  );
+  // D-11: occupancy derives from confirmed purchases. Without an explicit
+  // list (pure search/tests) the demonstration purchases are the baseline.
+  const occupancy = occupiedSeatCounts(
+    purchases ?? buildDemoPurchases(referenceDateISO),
+  );
 
-  const outbound = servicesForDirection(criteria.routeId, connection.origin.iata)
-    .map((service) => buildOccurrence(service, criteria.departureDate, occupancy, flightUpdates))
+  const outbound = servicesForDirection(connection, 'outbound')
+    .map((service) =>
+      serviceForConnection(service, connection, effective.destination.iata),
+    )
+    .map((service) =>
+      buildOccurrence(
+        service,
+        criteria.departureDate,
+        occupancy,
+        effective.farePerPassenger,
+        flightUpdates,
+      ),
+    )
     .filter((occurrence): occurrence is FlightOccurrence => occurrence !== null)
+    // CU-03 time-of-day range applies to the outbound leg only (D-2) and is
+    // applied after CU-07 resolution, so it uses the effective schedule.
+    .filter((occurrence) =>
+      matchesDepartureTimeSlot(occurrence.departureTime, criteria.departureTimeSlot),
+    )
     .sort(byDepartureTime);
 
-  const returnOptions = servicesForDirection(
-    criteria.routeId,
-    connection.destination.iata,
-  )
-    .map((service) => buildOccurrence(service, criteria.returnDate, occupancy, flightUpdates))
+  const returnOptions = servicesForDirection(connection, 'return')
+    .map((service) =>
+      serviceForConnection(service, connection, effective.destination.iata),
+    )
+    .map((service) =>
+      buildOccurrence(
+        service,
+        criteria.returnDate,
+        occupancy,
+        effective.farePerPassenger,
+        flightUpdates,
+      ),
+    )
     .filter((occurrence): occurrence is FlightOccurrence => occurrence !== null)
     .sort(byDepartureTime);
 
@@ -234,6 +326,15 @@ export function canContinueSearch(
   returnFlight: FlightOccurrence | null,
 ): boolean {
   if (!outbound || !returnFlight) return false;
+  if (!outbound.available || !returnFlight.available) return false;
+  if (
+    !matchesDepartureTimeSlot(
+      outbound.departureTime,
+      criteria.departureTimeSlot,
+    )
+  ) {
+    return false;
+  }
   const total = totalPassengers(criteria);
   return (
     outbound.availableSeats >= total && returnFlight.availableSeats >= total
@@ -249,12 +350,15 @@ export function suggestAlternativeDates(
   referenceDateISO: string = todayISO(),
   count = 3,
   flightUpdates?: FlightUpdates,
+  connectionUpdates?: ConnectionUpdates,
+  purchases?: readonly Purchase[],
 ): string[] {
   const connection = FLIGHT_CONNECTIONS.find((c) => c.id === criteria.routeId);
   if (!connection) return [];
 
-  const occupancy = buildOccupancyMap(referenceDateISO);
-  const services = servicesForDirection(criteria.routeId, connection.origin.iata);
+  const occupancy = occupiedSeatCounts(
+    purchases ?? buildDemoPurchases(referenceDateISO),
+  );
   const horizonEnd = addDaysISO(referenceDateISO, SEARCH_HORIZON_DAYS);
   const total = totalPassengers(criteria);
   const suggestions: string[] = [];
@@ -262,10 +366,38 @@ export function suggestAlternativeDates(
   let date = addDaysISO(criteria.departureDate, 1);
   while (date <= horizonEnd && suggestions.length < count) {
     if (isOperatingDate(date)) {
-      const hasCapacity = services.some((service) => {
-        const occurrence = buildOccurrence(service, date, occupancy, flightUpdates);
-        return occurrence !== null && occurrence.availableSeats >= total;
-      });
+      // The destination can differ per date if an update takes effect
+      // between two candidate dates (D-6).
+      const effective = effectiveConnectionForDate(
+        connection,
+        connectionUpdates,
+        date,
+        flightUpdates,
+      );
+      const hasCapacity = servicesForDirection(connection, 'outbound').some(
+        (service) => {
+          const occurrence = buildOccurrence(
+            serviceForConnection(
+              service,
+              connection,
+              effective.destination.iata,
+            ),
+            date,
+            occupancy,
+            effective.farePerPassenger,
+            flightUpdates,
+          );
+          return (
+            occurrence !== null &&
+            occurrence.availableSeats >= total &&
+            occurrence.available &&
+            matchesDepartureTimeSlot(
+              occurrence.departureTime,
+              criteria.departureTimeSlot,
+            )
+          );
+        },
+      );
       if (hasCapacity) suggestions.push(date);
     }
     date = addDaysISO(date, 1);
@@ -273,10 +405,7 @@ export function suggestAlternativeDates(
   return suggestions;
 }
 
-function toLegSummary(
-  occurrence: FlightOccurrence,
-  fare: number,
-): SelectedLegSummary {
+function toLegSummary(occurrence: FlightOccurrence): SelectedLegSummary {
   return {
     flightNumber: occurrence.service.flightNumber,
     originLabel: `${occurrence.service.origin.city} (${occurrence.service.origin.iata})`,
@@ -286,7 +415,7 @@ function toLegSummary(
     arrivalTime: occurrence.arrivalTime,
     arrivalNextDay: occurrence.arrivalNextDay,
     durationMinutes: occurrence.durationMinutes,
-    fare,
+    fare: occurrence.farePerPassenger,
   };
 }
 
@@ -294,16 +423,16 @@ function toLegSummary(
  * Verifies a leg summary against the real scheduled service: the flight
  * number must exist, belong to the route, fly the expected direction on an
  * operating date, and every descriptive field must match what
- * buildOccurrence/toLegSummary would produce — including the IANA-based
- * arrival time and next-day flag. Nothing from location.state is trusted.
+ * buildOccurrence/toLegSummary would produce — including the effective
+ * CU-07 connection destination, the IANA-based arrival time and the
+ * next-day flag. Nothing from location.state is trusted.
  */
 function isValidLegSummary(
   leg: unknown,
-  routeId: string,
+  connection: FlightConnection,
   expectedDate: string,
-  expectedOriginIata: string,
-  expectedDestinationIata: string,
-  fare: number,
+  expectedDirection: 'outbound' | 'return',
+  effective: FlightConnection,
   flightUpdates?: FlightUpdates,
 ): leg is SelectedLegSummary {
   if (typeof leg !== 'object' || leg === null) return false;
@@ -317,15 +446,25 @@ function isValidLegSummary(
 
   // CU-07: the leg must match the schedule in effect for its date —
   // a selection captured before a schedule update is stale and rejected.
-  const service = scheduledServiceForDate(
+  const baseService = scheduledServiceForDate(
     summary.flightNumber,
     flightUpdates,
     expectedDate,
   );
-  if (!service || service.routeId !== routeId) return false;
+  if (!baseService || baseService.routeId !== connection.id) return false;
+
+  const service = serviceForConnection(
+    baseService,
+    connection,
+    effective.destination.iata,
+  );
+
+  // Direction coherence: the outbound departs from the connection origin
+  // and the return arrives there (D-6 keeps both directions aligned).
   if (
-    service.origin.iata !== expectedOriginIata ||
-    service.destination.iata !== expectedDestinationIata
+    expectedDirection === 'outbound'
+      ? service.origin.iata !== connection.origin.iata
+      : service.destination.iata !== connection.origin.iata
   ) {
     return false;
   }
@@ -334,7 +473,7 @@ function isValidLegSummary(
   }
   if (summary.departureTime !== service.departureLocal) return false;
   if (summary.durationMinutes !== service.durationMinutes) return false;
-  if (summary.fare !== fare) return false;
+  if (summary.fare !== effective.farePerPassenger) return false;
 
   const departureUtc = localDateTimeToUtc(
     expectedDate,
@@ -364,12 +503,14 @@ function isValidLegSummary(
  * Hard boundary check for a SearchSelection arriving via router state
  * (CU-04 entry). Rejects anything that is not exactly what
  * buildSearchSelection produces: known route, coherent passengers and
- * dates, complete leg summaries at the connection fare, and a total price
- * equal to fare x 2 legs x passengers. Pure and side-effect free.
+ * dates, complete leg summaries at the effective connection fare, and a
+ * total price equal to that fare x 2 legs x passengers. Pure and
+ * side-effect free.
  */
 export function isValidSearchSelection(
   value: unknown,
   flightUpdates?: FlightUpdates,
+  connectionUpdates?: ConnectionUpdates,
 ): value is SearchSelection {
   if (typeof value !== 'object' || value === null) return false;
   const selection = value as Partial<SearchSelection>;
@@ -407,33 +548,45 @@ export function isValidSearchSelection(
     return false;
   }
 
+  // D-6: both legs share the destination in effect on the outbound date.
+  const effective = effectiveConnectionForDate(
+    connection,
+    connectionUpdates,
+    selection.departureDate,
+    flightUpdates,
+  );
+
   if (
     !isValidLegSummary(
       selection.outbound,
-      connection.id,
+      connection,
       selection.departureDate,
-      connection.origin.iata,
-      connection.destination.iata,
-      connection.farePerPassenger,
+      'outbound',
+      effective,
       flightUpdates,
     ) ||
     !isValidLegSummary(
       selection.returnFlight,
-      connection.id,
+      connection,
       selection.returnDate,
-      connection.destination.iata,
-      connection.origin.iata,
-      connection.farePerPassenger,
+      'return',
+      effective,
       flightUpdates,
     )
   ) {
     return false;
   }
 
+  const outboundFare = (selection.outbound as SelectedLegSummary).fare;
+  const returnFare = (selection.returnFlight as SelectedLegSummary).fare;
+  // Both legs must use the same effective fare; a mixed trip would mean an
+  // incoherent round trip across a destination-change boundary.
+  if (outboundFare !== returnFare) return false;
+
   return (
     Number.isFinite(selection.totalPrice) &&
     selection.totalPrice ===
-      connection.farePerPassenger * 2 * (selection.totalPassengers as number)
+      outboundFare * 2 * (selection.totalPassengers as number)
   );
 }
 
@@ -446,12 +599,13 @@ export function buildSearchSelection(
   const connection = FLIGHT_CONNECTIONS.find((c) => c.id === criteria.routeId);
   if (!connection) return null;
 
-  const fare = connection.farePerPassenger;
   const total = totalPassengers(criteria);
   return {
     routeId: criteria.routeId,
-    originLabel: `${connection.origin.city} (${connection.origin.iata})`,
-    destinationLabel: `${connection.destination.city} (${connection.destination.iata})`,
+    // Effective labels come from the resolved occurrences (D-6), so a
+    // destination update is reflected without consulting the base catalog.
+    originLabel: `${outbound.service.origin.city} (${outbound.service.origin.iata})`,
+    destinationLabel: `${outbound.service.destination.city} (${outbound.service.destination.iata})`,
     departureDate: criteria.departureDate,
     returnDate: criteria.returnDate,
     passengers: {
@@ -460,10 +614,11 @@ export function buildSearchSelection(
       infants: criteria.infants,
     },
     totalPassengers: total,
-    outbound: toLegSummary(outbound, fare),
-    returnFlight: toLegSummary(returnFlight, fare),
-    // Round trip sums both legs; same fare each way and per passenger (4.2, 4.8).
-    totalPrice: fare * 2 * total,
+    outbound: toLegSummary(outbound),
+    returnFlight: toLegSummary(returnFlight),
+    // Round trip sums both legs; same effective fare each way (4.2, 4.8).
+    totalPrice:
+      (outbound.farePerPassenger + returnFlight.farePerPassenger) * total,
   };
 }
 

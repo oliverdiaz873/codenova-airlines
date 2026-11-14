@@ -1,6 +1,16 @@
+import { DAYS_OF_OPERATION, FLIGHT_CONNECTIONS } from '@/data/flights';
 import './Destinations.css';
 
 export function Destinations() {
+  // CU-01: counters derive from the approved catalog, never from literals.
+  const connectionCount = FLIGHT_CONNECTIONS.length;
+  const originCount = new Set(
+    FLIGHT_CONNECTIONS.map((connection) => connection.origin.iata),
+  ).size;
+  const destinationCount = new Set(
+    FLIGHT_CONNECTIONS.map((connection) => connection.destination.iata),
+  ).size;
+
   return (
     <section className="destinations" id="destinations">
       <div className="destinations__bg">
@@ -16,21 +26,24 @@ export function Destinations() {
           Santo Domingo, rumbo a nuevos horizontes
         </h2>
         <p className="destinations__desc">
-          Conexiones directas desde SDQ y JBQ hacia cinco destinos. Consulta
-          las tarifas y los días de operación.
+          Conexiones directas desde SDQ y JBQ hacia {destinationCount}{' '}
+          {destinationCount === 1 ? 'destino' : 'destinos'}. Consulta las
+          tarifas y los días de operación.
         </p>
 
         <div className="destinations__stats">
           <div className="destinations__stat">
-            <div className="destinations__stat-value">5</div>
+            <div className="destinations__stat-value">{connectionCount}</div>
             <div className="destinations__stat-label">Conexiones directas</div>
           </div>
           <div className="destinations__stat">
-            <div className="destinations__stat-value">2</div>
+            <div className="destinations__stat-value">{originCount}</div>
             <div className="destinations__stat-label">Orígenes en Santo Domingo</div>
           </div>
           <div className="destinations__stat">
-            <div className="destinations__stat-value">3</div>
+            <div className="destinations__stat-value">
+              {DAYS_OF_OPERATION.length}
+            </div>
             <div className="destinations__stat-label">Días de operación</div>
           </div>
         </div>

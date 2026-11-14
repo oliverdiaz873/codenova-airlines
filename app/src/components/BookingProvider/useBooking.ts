@@ -12,6 +12,10 @@ import type {
   FlightUpdateChanges,
   FlightUpdates,
 } from '@/lib/flightUpdate';
+import type {
+  ApplyConnectionUpdateResult,
+  ConnectionUpdates,
+} from '@/lib/connectionUpdate';
 
 export interface BookingContextValue {
   customers: DemoCustomer[];
@@ -19,6 +23,8 @@ export interface BookingContextValue {
   purchases: Purchase[];
   /** CU-07: schedule update history keyed by flightNumber (memory only). */
   flightUpdates: FlightUpdates;
+  /** CU-07: connection destination history keyed by connection id. */
+  connectionUpdates: ConnectionUpdates;
   login: (customer: DemoCustomer) => void;
   register: (customer: DemoCustomer) => void;
   logout: () => void;
@@ -34,6 +40,10 @@ export interface BookingContextValue {
     flightNumber: string,
     date: string,
   ) => ScheduledService | undefined;
+  updateConnectionDestination: (
+    routeId: string,
+    destinationIata: string,
+  ) => ApplyConnectionUpdateResult;
 }
 
 export const BookingContext = createContext<BookingContextValue | null>(null);

@@ -212,3 +212,37 @@
   text-decoration: underline;
   padding: 0.25rem;
 }
+
+/* D-14: transactional pages stay usable on small screens. */
+@media (max-width: 640px) {
+  .reservation {
+    padding: 2rem 0 2.5rem;
+  }
+
+  .reservation__title {
+    font-size: 1.45rem;
+  }
+
+  .reservation__card,
+  .reservation__result {
+    padding: 1rem;
+  }
+
+  .reservation__row {
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .reservation__row dd {
+    text-align: left;
+  }
+
+  .reservation__dialog {
+    padding: 1.25rem;
+  }
+
+  .reservation__dialog-actions .btn,
+  .reservation__dialog-cancel {
+    width: 100%;
+  }
+}

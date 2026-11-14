@@ -193,16 +193,20 @@ export function buildConfirmationEmail(
           first.date,
         )
       : undefined;
-    // Each leg shows the direction of its own flight: the scheduled
-    // service carries the real origin/destination; the connection is
-    // only a fallback, mirrored for the return leg.
-    const routeLabel = service
-      ? `${airportLabel(service.origin)} → ${airportLabel(service.destination)}`
-      : connection
-        ? leg === 'ida'
-          ? `${airportLabel(connection.origin)} → ${airportLabel(connection.destination)}`
-          : `${airportLabel(connection.destination)} → ${airportLabel(connection.origin)}`
-        : purchase.routeId;
+    // Each leg shows the direction of its own flight. The purchase
+    // snapshot (D-6) wins, so the historical route never changes after a
+    // later destination update; the scheduled service and connection are
+    // fallbacks for fixtures without a snapshot.
+    const origin = first?.originAirport ?? service?.origin;
+    const destination = first?.destinationAirport ?? service?.destination;
+    const routeLabel =
+      origin && destination
+        ? `${airportLabel(origin)} → ${airportLabel(destination)}`
+        : connection
+          ? leg === 'ida'
+            ? `${airportLabel(connection.origin)} → ${airportLabel(connection.destination)}`
+            : `${airportLabel(connection.destination)} → ${airportLabel(connection.origin)}`
+          : purchase.routeId;
     return {
       label: LEG_LABELS[leg],
       flightNumber: first?.flightNumber ?? '',

@@ -2,9 +2,12 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { FLIGHT_CONNECTIONS, formatCurrency } from '@/data/flights';
 import { addDaysISO, todayISO } from '@/lib/dates';
+import { effectiveConnectionForDate } from '@/lib/connectionUpdate';
 import {
   buildSearchSelection,
   canContinueSearch,
+  DEPARTURE_TIME_SLOTS,
+  departureTimeSlotLabel,
   formatDateLong,
   formatDurationMinutes,
   searchFlights,
@@ -12,6 +15,7 @@ import {
   totalPassengers,
   validateSearchCriteria,
   SEARCH_HORIZON_DAYS,
+  type DepartureTimeSlot,
   type FlightOccurrence,
   type FlightSearchResults,
   type SearchCriteria,
@@ -53,12 +57,16 @@ function LegGroup({
       ) : (
         <ul className="flight-list">
           {options.map((occurrence) => {
+            const unavailable = !occurrence.available;
             const insufficient = occurrence.availableSeats < requiredSeats;
+            const blocked = unavailable || insufficient;
             const isSelected = selected?.key === occurrence.key;
             return (
               <li key={occurrence.key}>
                 <article
-                  className={`flight-option${isSelected ? ' flight-option--selected' : ''}`}
+                  className={`flight-option${isSelected ? ' flight-option--selected' : ''}${
+                    unavailable ? ' flight-option--unavailable' : ''
+                  }`}
                 >
                   <div className="flight-option__main">
                     <span className="flight-option__number">
@@ -78,33 +86,40 @@ function LegGroup({
                       {formatDurationMinutes(occurrence.durationMinutes)} ·{' '}
                       {formatDateLong(occurrence.date)}
                     </span>
+                    {unavailable && (
+                      <span className="flight-option__badge">
+                        Vuelo no disponible
+                      </span>
+                    )}
                   </div>
                   <div className="flight-option__side">
                     <span className="flight-option__fare">
-                      {formatCurrency(
-                        FLIGHT_CONNECTIONS.find(
-                          (c) => c.id === occurrence.service.routeId,
-                        )?.farePerPassenger ?? 0,
-                      )}
+                      {formatCurrency(occurrence.farePerPassenger)}
                       <small>por pasajero</small>
                     </span>
                     <span
                       className={`flight-option__seats${
-                        insufficient ? ' flight-option__seats--low' : ''
+                        blocked ? ' flight-option__seats--low' : ''
                       }`}
                     >
-                      {insufficient
-                        ? `Sin plazas suficientes (quedan ${occurrence.availableSeats})`
-                        : `Quedan ${occurrence.availableSeats} plazas`}
+                      {unavailable
+                        ? 'El agente marcó este vuelo como no disponible'
+                        : insufficient
+                          ? `Sin plazas suficientes (quedan ${occurrence.availableSeats})`
+                          : `Quedan ${occurrence.availableSeats} plazas`}
                     </span>
                     <button
                       type="button"
                       className="flight-option__select"
-                      disabled={insufficient}
+                      disabled={blocked}
                       aria-pressed={isSelected}
                       onClick={() => onSelect(occurrence)}
                     >
-                      {isSelected ? 'Seleccionado' : 'Seleccionar'}
+                      {unavailable
+                        ? 'No disponible'
+                        : isSelected
+                          ? 'Seleccionado'
+                          : 'Seleccionar'}
                     </button>
                   </div>
                 </article>
@@ -124,32 +139,21 @@ function LegGroup({
  */
 export function SearchPage() {
   const navigate = useNavigate();
-  const { flightUpdates } = useBooking();
+  const { flightUpdates, connectionUpdates, purchases } = useBooking();
 
-  const originOptions = useMemo(() => {
-    const seen = new Set<string>();
-    return FLIGHT_CONNECTIONS.filter((connection) => {
-      const key = `${connection.origin.iata}|${connection.origin.city}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, []);
-
-  const [originIata, setOriginIata] = useState(originOptions[0]?.origin.iata ?? '');
-  // Same defaulting rule as handleOriginChange: the destination state must
-  // start with a real value, or the select can show an option while routeId
-  // resolves to '' and the search is rejected.
-  const [destinationIata, setDestinationIata] = useState(
-    () =>
-      FLIGHT_CONNECTIONS.find((c) => c.origin.iata === originIata)
-        ?.destination.iata ?? '',
-  );
   const [departureDate, setDepartureDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
+  const [departureTimeSlot, setDepartureTimeSlot] =
+    useState<DepartureTimeSlot>('any');
   const [adults, setAdults] = useState(1);
   const [childrenCount, setChildrenCount] = useState(0);
   const [infants, setInfants] = useState(0);
+  const [originIata, setOriginIata] = useState(
+    FLIGHT_CONNECTIONS[0]?.origin.iata ?? '',
+  );
+  const [destinationIata, setDestinationIata] = useState(
+    FLIGHT_CONNECTIONS[0]?.destination.iata ?? '',
+  );
 
   const [criteria, setCriteria] = useState<SearchCriteria | null>(null);
   const [results, setResults] = useState<FlightSearchResults | null>(null);
@@ -160,23 +164,72 @@ export function SearchPage() {
     useState<FlightOccurrence | null>(null);
   const [error, setError] = useState('');
 
+  // D-6: the pair shown in the catalog is the effective connection for the
+  // selected departure date (today while the date is still empty). Duplicate
+  // pairs collapse deterministically: the first base connection wins.
+  const routeOptions = useMemo(() => {
+    const referenceDate = departureDate || today;
+    const seen = new Set<string>();
+    const options: {
+      routeId: string;
+      origin: { city: string; iata: string };
+      destination: { city: string; iata: string };
+    }[] = [];
+    for (const connection of FLIGHT_CONNECTIONS) {
+      const effective = effectiveConnectionForDate(
+        connection,
+        connectionUpdates,
+        referenceDate,
+        flightUpdates,
+      );
+      const key = `${effective.origin.iata}|${effective.destination.iata}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      options.push({
+        routeId: connection.id,
+        origin: effective.origin,
+        destination: effective.destination,
+      });
+    }
+    return options;
+  }, [connectionUpdates, flightUpdates, departureDate]);
+
+  const originOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return routeOptions.filter((option) => {
+      if (seen.has(option.origin.iata)) return false;
+      seen.add(option.origin.iata);
+      return true;
+    });
+  }, [routeOptions]);
+
   const destinationOptions = useMemo(
-    () => FLIGHT_CONNECTIONS.filter((c) => c.origin.iata === originIata),
-    [originIata],
+    () => routeOptions.filter((option) => option.origin.iata === originIata),
+    [routeOptions, originIata],
   );
 
+  // If an update removed the current pair (or the date moved across a
+  // version boundary), fall back to the first valid destination so the
+  // select never shows a value that resolves to no route.
+  const activeDestinationIata = destinationOptions.some(
+    (option) => option.destination.iata === destinationIata,
+  )
+    ? destinationIata
+    : (destinationOptions[0]?.destination.iata ?? '');
+
   const routeId =
-    FLIGHT_CONNECTIONS.find(
-      (c) =>
-        c.origin.iata === originIata && c.destination.iata === destinationIata,
-    )?.id ?? '';
+    routeOptions.find(
+      (option) =>
+        option.origin.iata === originIata &&
+        option.destination.iata === activeDestinationIata,
+    )?.routeId ?? '';
 
   const passengerCounts = { adults, children: childrenCount, infants };
   const groupSize = totalPassengers(passengerCounts);
 
   const handleOriginChange = (iata: string) => {
     setOriginIata(iata);
-    const first = FLIGHT_CONNECTIONS.find((c) => c.origin.iata === iata);
+    const first = routeOptions.find((option) => option.origin.iata === iata);
     setDestinationIata(first?.destination.iata ?? '');
     setResults(null);
     setSuggestions([]);
@@ -199,6 +252,7 @@ export function SearchPage() {
       routeId,
       departureDate,
       returnDate,
+      departureTimeSlot,
       ...passengerCounts,
     };
     const validationError = validateSearchCriteria(nextCriteria);
@@ -210,14 +264,27 @@ export function SearchPage() {
     }
     setError('');
     setCriteria(nextCriteria);
-    const searchResults = searchFlights(nextCriteria, todayISO(), flightUpdates);
+    const searchResults = searchFlights(
+      nextCriteria,
+      todayISO(),
+      flightUpdates,
+      connectionUpdates,
+      purchases,
+    );
     setResults(searchResults);
     setSelectedOutbound(null);
     setSelectedReturn(null);
     setSuggestions(
       searchResults.outbound.length === 0 ||
         searchResults.returnOptions.length === 0
-        ? suggestAlternativeDates(nextCriteria, todayISO(), 3, flightUpdates)
+        ? suggestAlternativeDates(
+            nextCriteria,
+            todayISO(),
+            3,
+            flightUpdates,
+            connectionUpdates,
+            purchases,
+          )
         : [],
     );
   };
@@ -280,12 +347,12 @@ export function SearchPage() {
                 value={originIata}
                 onChange={(event) => handleOriginChange(event.target.value)}
               >
-                {originOptions.map((connection) => (
+                {originOptions.map((option) => (
                   <option
-                    key={connection.origin.iata}
-                    value={connection.origin.iata}
+                    key={option.origin.iata}
+                    value={option.origin.iata}
                   >
-                    {connection.origin.city} ({connection.origin.iata})
+                    {option.origin.city} ({option.origin.iata})
                   </option>
                 ))}
               </select>
@@ -295,18 +362,18 @@ export function SearchPage() {
               <span className="search-form__label">Destino</span>
               <select
                 className="search-form__input"
-                value={destinationIata}
+                value={activeDestinationIata}
                 onChange={(event) =>
                   handleDestinationChange(event.target.value)
                 }
               >
-                {destinationOptions.map((connection) => (
+                {destinationOptions.map((option) => (
                   <option
-                    key={connection.destination.iata}
-                    value={connection.destination.iata}
+                    key={`${option.routeId}|${option.destination.iata}`}
+                    value={option.destination.iata}
                   >
-                    {connection.destination.city} (
-                    {connection.destination.iata})
+                    {option.destination.city} (
+                    {option.destination.iata})
                   </option>
                 ))}
               </select>
@@ -337,7 +404,34 @@ export function SearchPage() {
                 required
               />
             </label>
+
+            <label className="search-form__field">
+              <span className="search-form__label">Hora de partida (ida)</span>
+              <select
+                className="search-form__input"
+                aria-label="Hora de partida (ida)"
+                value={departureTimeSlot}
+                onChange={(event) => {
+                  setDepartureTimeSlot(event.target.value as DepartureTimeSlot);
+                  setResults(null);
+                  setSuggestions([]);
+                  setSelectedOutbound(null);
+                  setSelectedReturn(null);
+                }}
+              >
+                {DEPARTURE_TIME_SLOTS.map((slot) => (
+                  <option key={slot.value} value={slot.value}>
+                    {slot.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
+
+          <p className="search-form__hint">
+            La hora de partida filtra solo el vuelo de ida. Elige «Cualquier
+            hora» para ver todas las salidas del día.
+          </p>
 
           <fieldset className="search-form__passengers">
             <legend className="search-form__label">Pasajeros</legend>
@@ -404,7 +498,11 @@ export function SearchPage() {
           <div className="search-results">
             <LegGroup
               title={`Vuelo de ida — ${formatDateLong(criteria.departureDate)}`}
-              emptyMessage="No hay vuelos directos en esta fecha. Prueba con una fecha de operación cercana."
+              emptyMessage={
+                criteria.departureTimeSlot && criteria.departureTimeSlot !== 'any'
+                  ? `No existen vuelos de ida que coincidan con la hora de partida elegida (${departureTimeSlotLabel(criteria.departureTimeSlot)}). Cambia la franja o la fecha y vuelve a buscar.`
+                  : 'No hay vuelos directos en esta fecha. Prueba con una fecha de operación cercana.'
+              }
               options={results.outbound}
               selected={selectedOutbound}
               onSelect={toggleOutbound}

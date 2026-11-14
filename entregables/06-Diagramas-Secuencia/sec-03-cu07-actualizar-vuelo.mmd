@@ -1,0 +1,43 @@
+%% CU-07 — Actualizar información de vuelo
+%% Fuente editable Mermaid. Render SVG: sec-03-cu07-actualizar-vuelo.svg
+sequenceDiagram
+    actor Agente as Agente de boletos
+    participant Panel as /agente (CU-07)
+    participant Provider as BookingProvider
+    participant Ops as createFlightUpdateOps / applyFlightUpdate
+    participant Catalogo as Catálogo SCHEDULED_SERVICES
+    participant Updates as flightUpdates (memoria)
+    participant Consumidores as Consumidores de horarios
+
+    Agente->>Panel: selecciona número de vuelo (CN…)
+    Panel->>Catalogo: SCHEDULED_SERVICES.find(flightNumber)
+    Catalogo-->>Panel: servicio base + datos protegidos
+    Panel->>Provider: flightUpdates actuales
+    Provider-->>Panel: currentScheduleFieldsForService (última versión)
+    Panel-->>Agente: muestra información actual (solo lectura protegidos)
+
+    Agente->>Panel: edita departureLocal y/o durationMinutes
+    Agente->>Panel: «Guardar cambios»
+    Panel->>Provider: updateFlightService(flightNumber, changes)
+    Provider->>Ops: applyFlightUpdate(flightUpdates, fn, changes, Date.now())
+
+    Ops->>Catalogo: verifica que el vuelo existe
+    alt Vuelo inexistente / hora inválida / duración inválida / sin cambios
+        Ops-->>Provider: error — sin commit
+        Provider-->>Panel: mensaje de error
+        Panel-->>Agente: error visible, estado intacto
+    else Cambios válidos
+        Ops->>Ops: effectiveAtMs = max(now, versión previa)
+        Ops-->>Provider: nuevo FlightUpdates (inmutable)
+        Provider->>Updates: commit({...store, flightUpdates})
+        Updates-->>Provider: storeRef + useState sincronizados
+        Provider-->>Panel: ok
+        Panel-->>Agente: «Información actualizada» + valores refrescados
+    end
+
+    Note over Consumidores: Resolución por fecha en cada consumidor:
+    searchFlights, validatePurchase/buildPurchase,
+    purchaseLegs, isCancellationEligible, buildConfirmationEmail,
+    serviceForNextOperatingDate (landing)
+    Consumidores->>Updates: scheduledServiceForDate / serviceForDate
+    Updates-->>Consumidores: horario vigente solo si la salida aún no ocurrió

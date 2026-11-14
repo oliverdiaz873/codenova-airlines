@@ -1,0 +1,17 @@
+%% CU-05 — Enviar confirmación por correo (nivel medio)
+flowchart TD
+    A((Inicio)) --> B[Compra confirmada en /confirmacion]
+    B --> C{¿Ya existe estado de correo?}
+    C -- Sí --> D[No-op: envío idempotente, no se duplica]
+    D --> E((Fin))
+    C -- No --> F[Genera contenido con horarios vigentes y lo congela como instantánea]
+    F --> G[Commit: purchase PENDING + confirmationEmailContent]
+    G --> H[Retardo simulado 400 ms]
+    H --> I{¿Resultado simulado?}
+    I -- Cuenta correo-fallido@codenova.demo --> J[FAILED]
+    I -- Resto de cuentas --> K[SENT]
+    J --> L[Alerta ámbar «No pudimos enviar tu confirmación»; la reserva sigue confirmada]
+    K --> M[«Confirmación enviada correctamente»]
+    L --> N((Fin))
+    M --> N
+    N -.->|Sin reintentos automáticos| O[Estado final persistido en la compra]

@@ -1,0 +1,17 @@
+%% CU-03 — Buscar vuelos (nivel medio)
+flowchart TD
+    A((Inicio)) --> B[Cliente con sesión activa abre /buscar]
+    B --> C[Ingresa origen, destino, fechas de ida/vuelta y pasajeros]
+    C --> D{¿Criterios válidos? fechas en 30 días, ida ≤ vuelta, ≤30 pasajeros}
+    D -- No --> E[Mensaje de error; corregir criterios]
+    E --> C
+    D -- Sí --> F[searchFlights: ocurrencias operativas Lun/Mié/Vie con horario vigente]
+    F --> G{¿Hay vuelos de ida y regreso?}
+    G -- No --> H[Mensaje «sin vuelos» + sugerencias de fechas próximas con capacidad]
+    H --> I((Fin))
+    G -- Sí --> J[Cliente selecciona un vuelo de ida y uno de regreso]
+    J --> K{¿Ambas ocurrencias tienen plazas suficientes para el grupo?}
+    K -- No --> L[Aviso: capacidad insuficiente; puede cambiar selección]
+    L --> J
+    K -- Sí --> M[Continuar: navega a /reservar con la selección]
+    M --> N((Fin))

@@ -1,0 +1,27 @@
+%% CU-04 — Reservar vuelo (nivel medio)
+flowchart TD
+    A((Inicio)) --> B[Cliente llega a /reservar con selección de CU-03]
+    B --> C{¿Sesión de cliente activa?}
+    C -- No --> D[Aviso «Para reservar necesitas una cuenta» + acceso a registro/ingreso]
+    D --> Z((Fin))
+    C -- Sí --> E{¿Selección válida y vigente? horarios por fecha, tarifa, fechas coherentes}
+    E -- No --> F[«La información del vuelo cambió; realiza una nueva búsqueda»]
+    F --> Z
+    E -- Sí --> G[Cliente asigna un asiento por pasajero en ida y vuelta]
+    G --> H{¿Asientos válidos y disponibles?}
+    H -- No --> I[Mensaje de error de asiento; corregir selección]
+    I --> G
+    H -- Sí --> J[Cliente revisa resumen: itinerario, pasajeros, total]
+    J --> K{¿Cliente corporativo y desea canjear millas?}
+    K -- Sí --> L{¿Millas válidas: múltiplo 1.000, ≤ saldo, ≤ importe?}
+    L -- No --> M[Mensaje de error de millas; ajustar o continuar sin canje]
+    M --> J
+    L -- Sí --> N[Aplica descuento RD$ = millas / 10]
+    K -- No --> N
+    N --> O[confirmPurchase: validación atómica]
+    O --> P{¿Todo válido? asientos, millas, importe, selección}
+    P -- No --> Q[Error; no se crea compra ni se ocupa nada]
+    Q --> Z
+    P -- Sí --> R[Commit: Purchase CN-XXXX + millas descontadas]
+    R --> S[Navega a /confirmacion; envía correo simulado CU-05]
+    S --> T((Fin))

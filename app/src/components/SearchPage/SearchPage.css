@@ -188,6 +188,24 @@
   box-shadow: 0 0 0 1px var(--cn-gold);
 }
 
+.flight-option--unavailable {
+  border-style: dashed;
+  background: var(--cn-off-white, #f8f9fa);
+}
+
+.flight-option__badge {
+  align-self: flex-start;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-pill);
+  color: #b42318;
+  background: #fdecea;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .flight-option__main {
   display: flex;
   flex-direction: column;

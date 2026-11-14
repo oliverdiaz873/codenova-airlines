@@ -1,0 +1,46 @@
+%% CU-04 — Reservar vuelo (escenario principal)
+%% Fuente editable Mermaid. Render SVG: sec-01-cu04-reservar-vuelo.svg
+sequenceDiagram
+    actor Cliente
+    participant Buscar as /buscar (CU-03)
+    participant Catalogo as Catálogo de servicios
+    participant Reserva as /reservar (CU-04)
+    participant Provider as BookingProvider
+    participant Asientos as Ocupación de asientos
+    participant Millas as Reglas de millas
+    participant Correo as Correo simulado (CU-05)
+
+    Cliente->>Buscar: criterios (origen, destino, fechas, pasajeros)
+    Buscar->>Catalogo: searchFlights(criteria, flightUpdates)
+    Catalogo-->>Buscar: ocurrencias con horario vigente por fecha
+    Cliente->>Buscar: selecciona ida y regreso
+    Buscar->>Reserva: navega con SearchSelection (router state)
+
+    Reserva->>Provider: isValidSearchSelection + validatePurchase(flightUpdates)
+    alt Selección inválida u obsoleta
+        Provider-->>Reserva: error «información del vuelo cambió»
+        Reserva-->>Cliente: solicitar nueva búsqueda
+    else Selección válida
+        Cliente->>Reserva: asigna un asiento por pasajero y trayecto
+        Cliente->>Reserva: confirma (asientos + millas opcionales)
+        Reserva->>Provider: confirmPurchase(selection, seats, milesUsed)
+
+        Provider->>Provider: applyDueAccrual (millas pendientes)
+        Provider->>Asientos: validateSeatAvailability(vuelo|fecha, asiento)
+        alt Asiento ocupado o capacidad insuficiente
+            Asientos-->>Provider: error
+            Provider-->>Reserva: error — no se crea nada
+        else Asientos disponibles
+            Provider->>Millas: validateRedemptionMiles(saldo, milesUsed)
+            alt Millas inválidas o excedidas
+                Millas-->>Provider: error
+                Provider-->>Reserva: error — no se crea nada
+            else Todo válido
+                Provider->>Provider: buildPurchase + commit atómico
+                Provider-->>Reserva: Purchase (CN-XXXX)
+                Reserva->>Cliente: navega a /confirmacion
+                Reserva->>Correo: sendConfirmationEmail(code)
+                Correo-->>Cliente: PENDING → SENT / FAILED (CU-05)
+            end
+        end
+    end

@@ -3,10 +3,10 @@
 **Proyecto:** CodeNova Airlines — Prototipo frontend de reserva de vuelos
 **Asignatura:** INF-3290
 **Tipo de documento:** Plan funcional y estado del proyecto (documento único)
-**Versión:** 2.11 — Estado de CU-04 y composición de la landing
+**Versión:** 2.13 — Reconciliación del PR #1 y correcciones académicas
 **Fecha de cierre:** 2026-11-06
-**Última actualización:** 2026-11-12
-**Estado:** Planificación funcional **CERRADA**. C-1, C-2 y C-3 resueltas; las reglas de CU-03 y CU-04 están aprobadas (3.9, 4.4, 4.7, 5.2) y **ambas tienen prototipo implementado y publicado**: rutas `/panel`, `/buscar`, `/reservar` —con aviso de cuenta para Visitantes (C-1.5)— y `/confirmacion`, protección de sesión, retorno contextual, disponibilidad ficticia determinista, mapa de 30 asientos, millas corporativas y confirmación atómica de la compra. Permanecen pendientes CU-05 (correo de confirmación simulado), CU-06 (cancelación), el panel del Agente, la cancelación parcial y la combinación de conexiones (4.8, 9.4).
+**Última actualización:** 2026-11-14
+**Estado:** Planificación funcional **CERRADA** y **proyecto implementado**. C-1, C-2 y C-3 resueltas; las reglas de CU-03 y CU-04 están aprobadas (3.9, 4.4, 4.7, 5.2). **Los siete casos de uso tienen prototipo implementado y validado** con 393 pruebas automatizadas en el árbol de trabajo local, que incorpora la reconciliación del PR #1 (`96453fce`) y las diez etapas de correcciones académicas: registro con dirección/teléfono, filtro de búsqueda por franjas horarias, mapa de asientos con forma de avión, disponibilidad y bloqueo de reservas, destinos por conexión, reservas demo como compras, millas históricas y pruebas de componentes. Los cambios están **pendientes de commit e integración con `origin/main`**; el último commit publicado sigue siendo `6b8f2e8`. Rutas `/`, `/ingresar`, `/panel`, `/buscar`, `/reservar`, `/confirmacion`, `/panel/reservas`, `/panel/reservas/:code` y `/agente`; protección de sesión, retorno contextual, disponibilidad ficticia determinista, mapa de 30 asientos, millas corporativas, confirmación atómica, correo de confirmación simulado (CU-05), cancelación con reembolso del 80 % (CU-06) y actualización de información de vuelo en memoria (CU-07, 4.9). Permanecen como alcances excluidos la cancelación parcial y la combinación de conexiones (4.8, 9.4).
 
 ---
 
@@ -39,13 +39,13 @@
 | Arquitectura feature-based | **[E]** Vigente; estructura interna **[R]** |
 | Stack React + Vite + TypeScript | **[E]** Aprobado; no autoriza inicialización |
 | Diseño visual | Landing implementada como prototipo; la sección ExperienceSection quedó aprobada en revisión visual (10.5) |
-| Implementación | Frontend prototipo publicado: landing pública (Hero, Destinations, Routes, ExperienceSection), flujo `/ingresar`, panel `/panel`, CU-03 en `/buscar`, CU-04 en `/reservar` con aviso de cuenta y `/confirmacion` |
-| Funcionalidad pendiente | CU-05 (correo de confirmación simulado), CU-06 (cancelación), panel del Agente, y otros alcances excluidos |
+| Implementación | Frontend prototipo publicado: landing pública (Hero, Destinations, Routes, ExperienceSection), flujo `/ingresar`, panel `/panel`, CU-03 en `/buscar`, CU-04 en `/reservar` con aviso de cuenta y `/confirmacion`, CU-05 (correo simulado), CU-06 (`/panel/reservas*`) y CU-07 (`/agente`) |
+| Funcionalidad pendiente | Solo alcances excluidos: cancelación parcial y combinación de conexiones (4.8, 9.4) |
 | Datos de vuelos y mapa | 20 servicios ficticios y mapa 10 × 3 aprobados e implementados (4.4, 4.7) |
 | Millas CU-04 | Reglas cerradas e implementadas: acumulación, canje, titularidad corporativa y confirmación atómica (5.2) |
 | Pendientes operativos | Cancelación parcial y combinación de conexiones (4.8, 9.4) |
 
-**Próxima etapa:** continuar la revisión visual de la landing registrando solo los cambios aprobados. CU-05, CU-06 y el panel del Agente permanecen pendientes; su planificación y desarrollo requieren autorización expresa.
+**Próxima etapa:** proyecto cerrado. CU-01 a CU-07 están implementados y validados con 393 pruebas automatizadas en el árbol local reconciliado con el PR #1; la integración con `origin/main` (`96453fce`) y el commit definitivo están pendientes de autorización. Los entregables académicos de los pasos 2, 6, 9 y 10 se generaron en `entregables/` (v2.13). Solo quedan como excluidos la cancelación parcial y la combinación de conexiones.
 
 ---
 
@@ -204,7 +204,7 @@ CU-01 es la única función de la landing pública. CU-03 se ejecuta en `/buscar
 | Agente ficticio | Identidad de demostración | Panel `/agente` |
 | Reserva confirmada | Ida y vuelta con dos componentes (4.8) | Estado confirmado |
 | Reserva cancelable | Con reembolso aplicable | CU-06 con devolución del 80 % |
-| Reserva fuera de plazo | Sin reembolso | CU-06 sin devolución |
+| Reserva fuera de plazo | Cancelación bloqueada | CU-06 no cancela ni reembolsa; la reservación sigue confirmada |
 | Confirmación de correo | Representación visual | CU-05 simulado |
 
 - Datos personales **completamente ficticios**.
@@ -324,7 +324,7 @@ La interfaz muestra un aviso discreto: **«Esta es una demostración. Los datos 
 - **Acceso:** CU-03 es exclusivo para Clientes registrados con sesión activa. Un Visitante no puede buscar; si intenta acceder, se dirige a `/ingresar` y recibe el aviso y enlace de registro previstos en C-1 (3.8).
 - **Retorno contextual:** si el Cliente inició el ingreso o registro al intentar abrir CU-03, al completar ese flujo regresa a la búsqueda. Si accede desde el header, entra al panel del Cliente.
 - **Trayecto:** la búsqueda es exclusivamente de ida y vuelta. El vuelo de regreso debe usar la misma conexión en sentido inverso al vuelo de ida. No se combinan rutas ni conexiones distintas.
-- **Criterios:** el Cliente selecciona origen, destino, fecha de ida, fecha de regreso y cantidad por tipo de pasajero. Solo se ofrecen las conexiones y servicios directos aprobados en PA-2 (4.1, 4.3, 4.7); los horarios se interpretan con las zonas IANA según cada fecha (4.7.1).
+- **Criterios:** el Cliente selecciona origen, destino, fecha de ida, fecha de regreso y cantidad por tipo de pasajero. Solo se ofrecen las conexiones y servicios directos aprobados en PA-2 (4.1, 4.3, 4.7); los horarios se interpretan con las zonas IANA según cada fecha (4.7.1). Opcionalmente puede filtrar la **hora de salida del trayecto de ida** por franjas horarias predefinidas (mañana, tarde, noche o cualquier hora); el regreso no se filtra por ese criterio.
 - **Fechas:** se mantiene el horizonte de los próximos 30 días y los días de operación aprobados en PA-2 (4.3). La fecha de regreso no puede ser anterior a la de ida.
 - **Pasajeros:** se admiten hasta 30 pasajeros en total por búsqueda, incluidos los infantes. Debe haber al menos un pasajero. Ambos vuelos deben tener disponibilidad suficiente para el grupo completo.
 - **Disponibilidad:** los datos son ficticios y deterministas: cada ocurrencia sin reservas de demostración comienza con 30 plazas, y las reservas de demostración descuentan las plazas correspondientes. La disponibilidad es independiente por vuelo y fecha, y se restablece al recargar la página (4.4). CU-03 solo la muestra; no retiene plazas.
@@ -394,6 +394,7 @@ No se incluye Santo Domingo – Punta Cana.
 
 - Distribución: **10 filas con 3 asientos por fila (2–1)**, para un total de 30 plazas.
 - Identificadores: filas del **1 al 10** y columnas **A, B y C**; asientos `1A`–`10C`.
+- La interfaz lo representa como el avión visto desde arriba (proa arriba, alas sobre las filas 4–7), identificando los asientos de ventana y la zona del ala, con opción de resaltar las ventanas disponibles.
 - Vista de referencia (A y B a un lado del pasillo, C al otro):
 
 ```text
@@ -551,7 +552,7 @@ Las horas y duraciones anteriores son **ficticias y aprobadas para el prototipo*
 - Se cancela la compra completa: todas las componentes y todos los asientos.
 - PA-5 se aplica con el **primer vuelo de la compra**.
 - Con siete días completos o más: **80 % del importe neto pagado**.
-- Con menos de siete días: no corresponde reembolso académico.
+- Con menos de siete días: **la cancelación no está disponible**; la acción se bloquea y no corresponde reembolso académico. La reservación permanece confirmada.
 - Las millas canjeadas no se reponen y las acreditadas no se revierten (5.2, decisión D-5).
 - No se ofrece cancelación parcial en el prototipo.
 
@@ -606,6 +607,19 @@ Notas:
 2. Posibilidad de combinar conexiones diferentes entre ida y vuelta.
 
 El mapa de asientos está aprobado en 4.4, los servicios programados ficticios en 4.7 y las distancias de las conexiones en 4.7.2. Los pendientes restantes deben resolverse antes de las pantallas o del conjunto de demostración que los requiera.
+
+### 4.9 Actualización de información de vuelo (CU-07) **[C]**
+
+Decisiones de diseño aprobadas por etapas durante la implementación y publicadas en `6b8f2e8`, ampliadas posteriormente con disponibilidad y destino de conexión (cambios pendientes de commit):
+
+1. **Campos editables.** El agente puede modificar `departureLocal` (hora de salida, `HH:mm`), `durationMinutes` (duración entera > 0), la disponibilidad operativa (`available`) y el destino de la conexión (`connectionUpdates`, a nivel de conexión y efectivo en ambos trayectos). El número de vuelo, la ruta, los aeropuertos de cada servicio, las zonas horarias, los días operativos, la capacidad y la tarifa son **protegidos de solo lectura**.
+2. **Overrides temporales por número de vuelo.** Las actualizaciones se guardan en `flightUpdates: Partial<Record<string, FlightServiceUpdate[]>>` dentro de `BookingProvider`, como lista versionada por servicio. Cada versión registra `departureLocal`, `durationMinutes` y `effectiveAtMs`.
+3. **Vigencia por instante efectivo.** Una versión aplica únicamente a las ocurrencias cuya hora de salida **vigente** en ese momento sea estrictamente posterior a `effectiveAtMs`. Las ocurrencias ya iniciadas o salidas conservan su horario histórico. `effectiveAtMs` se ajusta a una secuencia no decreciente por servicio.
+4. **Resolución temporal compartida.** Todos los consumidores (búsqueda, validación y construcción de compra, detalle de reservas, elegibilidad de cancelación, contenido del correo y próxima salida de la landing) resuelven el horario mediante `scheduledServiceForDate`/`serviceForDate` con los `flightUpdates` vigentes. La landing muestra la siguiente salida operativa que todavía no haya partido.
+5. **Persistencia solo en memoria.** Las actualizaciones no usan `localStorage`, `sessionStorage` ni IndexedDB; se pierden con la recarga, coherente con el resto del prototipo.
+6. **Instantánea del correo.** El contenido completo del correo de confirmación se congela al iniciar el envío (`confirmationEmailContent`); actualizaciones posteriores de horario no alteran correos ya enviados o fallidos. Los correos futuros se generan con los horarios vigentes.
+7. **Acceso simulado.** `/agente` no tiene autenticación real: el agente de boletos accede de forma independiente, según 3.3.
+8. **Correcciones de robustez.** El enlace «Área del agente» del footer usa navegación SPA (`Link`) para no recargar y perder el estado; la pre-validación de `/reservar` recibe `flightUpdates` para no rechazar selecciones creadas tras una actualización.
 
 ---
 
@@ -706,7 +720,7 @@ No se construye:
 | Comparación | Fecha y hora de la solicitud contra fecha y hora programada de salida |
 | Zona horaria | Hora local del aeropuerto de origen |
 | Con siete días o más | Reembolso del **80 % del importe neto pagado** después del descuento por millas (4.8) |
-| Con menos de siete días | Se permite cancelar, pero **no corresponde el reembolso académico** |
+| Con menos de siete días | **No se permite cancelar** (acción bloqueada); la reservación permanece confirmada |
 | 20 % restante | No se devuelve cuando aplica el reembolso |
 | Unidad de cancelación | **Compra completa**; sin cancelaciones parciales en el prototipo (4.8) |
 | Base del reembolso | **Importe neto pagado** después del descuento por millas (4.8) |
@@ -719,7 +733,7 @@ Los **siete días completos** son una interpretación operativa para hacer verif
 ### 6.3 Resultados representados
 
 1. Cancelación con reembolso del 80 % del importe neto pagado.
-2. Cancelación sin reembolso por no cumplir el plazo.
+2. Cancelación bloqueada por no cumplir el plazo.
 3. Reservación no encontrada.
 4. Compra de ida y vuelta cancelada completa; sin cancelación parcial.
 
@@ -777,6 +791,11 @@ Las tarifas del prototipo no reproducen exactamente las tarifas comerciales cons
 | Una confirmación por compra | Decisión del equipo (C-3) | Decisión del equipo |
 | Cancelación completa; 80 % neto | Decisión del equipo (C-3, PA-5) | Decisión del equipo |
 | Agente sin contraseña | Autenticación simulada | Prototipo |
+| Hora de salida, duración, disponibilidad y destino de conexión editables en CU-07 | Decisión del equipo (4.9) | Decisión del equipo |
+| Overrides temporales por vuelo con `effectiveAtMs` | Decisión del equipo (4.9) | Decisión del equipo |
+| Ocurrencias históricas conservan horario; futuras usan la actualización | Decisión del equipo (4.9) | Decisión del equipo |
+| Actualizaciones de vuelo solo en memoria | Decisión del equipo (4.9) | Decisión del equipo |
+| Correo con instantánea del contenido enviado | Decisión del equipo (4.9) | Decisión del equipo |
 | Ingreso del Cliente por correo | Decisión del equipo (C-1) | Prototipo |
 | Correos de demostración reservados | Decisión del equipo (C-1) | Dato de demostración |
 | Landing limitada a CU-01 | CU-01, CU-03 y guía p. 92 | Académico + diseño |
@@ -941,9 +960,9 @@ Las decisiones funcionales de 3.7, 3.8, 4.8 y 5.2 están cerradas y no forman pa
 
 ## 11. Próximos pasos
 
-1. Continuar la revisión visual de la implementación existente de la landing y registrar solo los cambios aprobados. CU-04 ya está implementado y publicado; la sección ExperienceSection quedó aprobada (10.5).
-2. Pendientes operativos: la cancelación parcial y la combinación de conexiones permanecen sin implementar. Cualquier planificación o desarrollo relacionado requerirá autorización expresa, respetando las decisiones funcionales cerradas y las exclusiones aprobadas.
-3. CU-05 (correo de confirmación simulado), CU-06 (cancelación con reembolso) y el panel del Agente permanecen pendientes; su alcance se definirá y autorizará de forma expresa antes de cualquier implementación, respetando las decisiones funcionales cerradas y las exclusiones aprobadas.
+1. **Proyecto cerrado (v2.13):** CU-01 a CU-07 están implementados y validados con 393 pruebas automatizadas en el árbol local, que incorpora la reconciliación del PR #1 (`96453fce`) y las diez etapas de correcciones académicas. La integración con `origin/main` y el commit definitivo están pendientes de autorización. Los entregables académicos se generaron en `entregables/` (SRS, diagramas de secuencia y actividad, análisis GUI y evidencias).
+2. Pendientes operativos: la cancelación parcial y la combinación de conexiones permanecen sin implementar y **excluidos del alcance**. Cualquier planificación o desarrollo relacionado requerirá autorización expresa, respetando las decisiones funcionales cerradas y las exclusiones aprobadas.
+3. Defensa y entrega: utilizar `entregables/README.md` como índice, `app/README.md` para ejecutar el prototipo y `entregables/Evidencias/pruebas.md` para los resultados de las 393 pruebas automatizadas.
 
 **Regla de detención:** no se altera el diseño visual aprobado ni se amplía la funcionalidad sin aprobación explícita.
 
@@ -969,7 +988,9 @@ Las decisiones funcionales de 3.7, 3.8, 4.8 y 5.2 están cerradas y no forman pa
 | 09/11/2026 | **Versión 2.9 —** Reglas de millas de CU-04 cerradas: D-1 acreditación tras ida y vuelta con acreditación perezosa por fecha; D-2 distancias ficticias por trayecto en 4.7.2; D-3 todos los pasajeros generan millas a la cuenta titular; D-4 titularidad exclusiva, uso en reservas propias y sin transferencias; D-6 canje opcional sobre el total. Las distancias dejan de ser pendientes (4.8.9, 9.4) | Aprobación explícita de Oliver |
 | 09/11/2026 | **Versión 2.10 —** Precisión de D-1: una compra cancelada antes de la finalización del viaje no completa el viaje y no acredita millas. Sin cambios en D-5 ni en PA-5 | Aprobación explícita de Oliver |
 | 12/11/2026 | **Versión 2.11 —** Estado actualizado: CU-04 implementado y publicado en `ac7801f` (`/reservar` con aviso de cuenta para Visitantes y `/confirmacion`); composición vigente de la landing documentada (Hero → Destinations → Routes → ExperienceSection → Footer), con horarios de salida en las tarjetas derivados de 4.7 y las estadísticas 5 conexiones / 60 salidas semanales; aprobación visual de ExperienceSection registrada (10.5). CU-05, CU-06 y el panel del Agente permanecen pendientes | Implementación y estado del repositorio |
+| 14/11/2026 | **Versión 2.12 —** Cierre del proyecto: CU-05 publicado en `d463f5b`, CU-06 en `34ff94e` y CU-07 en `6b8f2e8` (los tres en `main`, sincronizada con `origin/main`); los siete casos de uso quedan implementados, validados (252 pruebas) y publicados. Se documentan las decisiones de CU-07 en 4.9 (campos editables, overrides temporales con `effectiveAtMs`, histórico preservado, solo memoria, instantánea de correo, acceso simulado del agente). Se generaron los entregables académicos de los pasos 2, 6, 9 y 10 en `entregables/` y se actualizaron los README | Autorización de cierre documental de Oliver |
+| 14/11/2026 | **Versión 2.13 —** Reconciliación del PR #1 (`96453fce`) con las diez etapas de correcciones académicas: registro con dirección/teléfono y validaciones del PR, filtro de búsqueda por franjas horarias, mapa de asientos con forma de avión, disponibilidad y bloqueo de reservas no disponibles, destinos por conexión, reservas demo como compras, millas históricas y pruebas de componentes (22 suites / 393 pruebas). Cambios implementados y verificados en el árbol local; commit e integración con `origin/main` pendientes de autorización | Fases de reconciliación autorizadas por Oliver |
 
 ---
 
-**Fin del documento.** Planificación funcional cerrada. C-1, C-2 y C-3 resueltas; CU-03 y CU-04 implementados como prototipo publicado (búsqueda `/buscar`, reserva `/reservar` con aviso de cuenta, confirmación `/confirmacion`, panel `/panel`); los 20 servicios ficticios, el mapa 10 × 3 y las reglas de millas están aprobados e implementados. Permanecen pendientes CU-05, CU-06, el panel del Agente, la cancelación parcial y la combinación de conexiones (4.8.9, 9.4).
+**Fin del documento.** Planificación funcional cerrada y **proyecto implementado**. C-1, C-2 y C-3 resueltas; CU-01 a CU-07 implementados como prototipo validado (landing `/`, acceso `/ingresar`, panel `/panel`, búsqueda `/buscar`, reserva `/reservar` con aviso de cuenta, confirmación `/confirmacion`, correo simulado, reservas `/panel/reservas*`, agente `/agente`); los 20 servicios ficticios, el mapa 10 × 3 y las reglas de millas están aprobados e implementados. La reconciliación del PR #1 y las correcciones académicas están verificadas localmente y pendientes de commit e integración. Permanecen excluidos la cancelación parcial y la combinación de conexiones (4.8.9, 9.4).

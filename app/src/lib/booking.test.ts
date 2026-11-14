@@ -14,7 +14,14 @@ import {
   type LegSeatSelection,
   type Purchase,
 } from '@/lib/booking';
-import type { SearchSelection } from '@/lib/flightSearch';
+import {
+  buildSearchSelection,
+  searchFlights,
+  type SearchCriteria,
+  type SearchSelection,
+} from '@/lib/flightSearch';
+import type { ConnectionUpdates } from '@/lib/connectionUpdate';
+import { purchaseLegs } from '@/lib/purchaseView';
 
 // Simulates a time-zone conversion failure for one specific wall-clock
 // time ('12:34' passes the format guard but the mocked converter throws),
@@ -577,6 +584,314 @@ describe('returnArrivalUtcMs invalid input protection (4.1.2)', () => {
     expect(purchases).toHaveLength(0);
     expect(custs).toHaveLength(1);
     expect(custs[0]).toEqual(minorista);
+  });
+});
+
+describe('CU-07 — connection destination at purchase (D-6/D-7)', () => {
+  const criteria: SearchCriteria = {
+    routeId: 'sdq-sju',
+    departureDate: '2026-11-09',
+    returnDate: '2026-11-11',
+    adults: 1,
+    children: 0,
+    infants: 0,
+  };
+  const departureMs = localDateTimeToUtc(
+    '2026-11-09',
+    '08:00',
+    'America/Santo_Domingo',
+  ).getTime();
+  const updates: ConnectionUpdates = {
+    'sdq-sju': [
+      { destinationIata: 'MIA', effectiveAtMs: departureMs - 1_000 },
+    ],
+  };
+
+  function selectionFor(connectionUpdates?: ConnectionUpdates): SearchSelection {
+    const results = searchFlights(
+      criteria,
+      '2026-11-02',
+      undefined,
+      connectionUpdates,
+    );
+    const selection = buildSearchSelection(
+      criteria,
+      results.outbound[0],
+      results.returnOptions[0],
+    );
+    if (!selection) throw new Error('Expected a valid selection');
+    return selection;
+  }
+
+  it('validates and stores airport snapshots at the effective fare', () => {
+    const selection = selectionFor(updates);
+    expect(
+      validatePurchase(selection, oneSeat, 0, minorista, undefined, updates),
+    ).toBeNull();
+
+    const purchase = mustBuild(
+      selection,
+      oneSeat,
+      0,
+      minorista,
+      'CN-0001',
+      undefined,
+      updates,
+    );
+    expect(purchase.grossTotal).toBe(19_800);
+    expect(purchase.netTotal).toBe(19_800);
+    const outbound = purchase.components.filter((c) => c.leg === 'ida');
+    expect(outbound[0].fare).toBe(9_900);
+    expect(outbound[0].originAirport).toMatchObject({
+      city: 'Santo Domingo',
+      iata: 'SDQ',
+    });
+    expect(outbound[0].destinationAirport).toMatchObject({
+      city: 'Miami',
+      iata: 'MIA',
+    });
+    const returning = purchase.components.filter((c) => c.leg === 'vuelta');
+    expect(returning[0].originAirport?.iata).toBe('MIA');
+    expect(returning[0].destinationAirport?.iata).toBe('SDQ');
+  });
+
+  it('rejects a selection captured before the destination change', () => {
+    const stale = selectionFor();
+    expect(
+      validatePurchase(stale, oneSeat, 0, minorista, undefined, updates),
+    ).toBe('La información del vuelo cambió; realiza una nueva búsqueda.');
+    expect(
+      buildPurchase(
+        stale,
+        oneSeat,
+        0,
+        minorista,
+        'CN-0001',
+        undefined,
+        updates,
+      ),
+    ).toBeNull();
+  });
+
+  it('rejects the new selection once the version no longer applies', () => {
+    const fresh = selectionFor(updates);
+    expect(validatePurchase(fresh, oneSeat, 0, minorista)).toBe(
+      'La información del vuelo cambió; realiza una nueva búsqueda.',
+    );
+  });
+
+  it('keeps the paid amount and historical route after a later change', () => {
+    const earlier: ConnectionUpdates = {
+      'sdq-sju': [
+        { destinationIata: 'MIA', effectiveAtMs: departureMs - 2_000 },
+      ],
+    };
+    const purchase = mustBuild(
+      selectionFor(earlier),
+      oneSeat,
+      0,
+      minorista,
+      'CN-0001',
+      undefined,
+      earlier,
+    );
+    const snapshot = JSON.stringify(purchase);
+
+    // A second destination version is recorded afterwards. A present sale
+    // uses the new fare, while the confirmed purchase keeps the amount it
+    // was charged (D-7) and its airport snapshots.
+    const later: ConnectionUpdates = {
+      'sdq-sju': [
+        { destinationIata: 'MIA', effectiveAtMs: departureMs - 2_000 },
+        { destinationIata: 'BOG', effectiveAtMs: departureMs - 500 },
+      ],
+    };
+    const fresh = selectionFor(later);
+    expect(fresh.destinationLabel).toBe('Bogotá (BOG)');
+    expect(fresh.totalPrice).toBe(20_400);
+    expect(purchase.grossTotal).toBe(19_800);
+    expect(JSON.stringify(purchase)).toBe(snapshot);
+    const legs = purchaseLegs(purchase);
+    expect(legs[0].routeLabel).toBe('Santo Domingo (SDQ) → Miami (MIA)');
+    expect(legs[1].routeLabel).toBe('Miami (MIA) → Santo Domingo (SDQ)');
+  });
+
+  it('resolves the return arrival in the new origin zone', () => {
+    const selection = selectionFor(updates);
+    const expected =
+      localDateTimeToUtc(
+        selection.returnFlight.date,
+        selection.returnFlight.departureTime,
+        'America/New_York',
+      ).getTime() +
+      75 * 60_000;
+    expect(returnArrivalUtcMs(selection, undefined, updates)).toBe(expected);
+    // Without the destination update the return leaves SJU (UTC-4).
+    const base = selectionFor();
+    expect(returnArrivalUtcMs(base)).toBe(
+      localDateTimeToUtc(
+        base.returnFlight.date,
+        base.returnFlight.departureTime,
+        'America/Puerto_Rico',
+      ).getTime() +
+        75 * 60_000,
+    );
+  });
+
+  it('keeps a past trip at its historical route and fare', () => {
+    const past = {
+      ...criteria,
+      departureDate: '2026-11-06',
+      returnDate: '2026-11-09',
+    };
+    const results = searchFlights(past, '2026-11-02', undefined, updates);
+    const selection = buildSearchSelection(
+      past,
+      results.outbound[0],
+      results.returnOptions[0],
+    )!;
+    expect(
+      validatePurchase(selection, oneSeat, 0, minorista, undefined, updates),
+    ).toBeNull();
+    const purchase = mustBuild(
+      selection,
+      oneSeat,
+      0,
+      minorista,
+      'CN-0002',
+      undefined,
+      updates,
+    );
+    expect(purchase.grossTotal).toBe(15_800);
+    expect(
+      purchase.components.find((c) => c.leg === 'ida')?.destinationAirport?.iata,
+    ).toBe('SJU');
+  });
+
+  it('rejects a tampered total that does not match the new fare', () => {
+    const selection = selectionFor(updates);
+    const tampered = { ...selection, totalPrice: 15_800 };
+    expect(
+      validatePurchase(tampered, oneSeat, 0, minorista, undefined, updates),
+    ).toBe('El importe total de la compra no es válido.');
+  });
+});
+
+describe('CU-04 — flight availability validation (alternate 2)', () => {
+  const cn101DepMs = localDateTimeToUtc(
+    '2026-11-10',
+    '08:00',
+    'America/Santo_Domingo',
+  ).getTime();
+  const cn102DepMs = localDateTimeToUtc(
+    '2026-11-16',
+    '10:30',
+    'America/Puerto_Rico',
+  ).getTime();
+
+  const outboundUnavailable: FlightUpdates = {
+    CN101: [
+      {
+        departureLocal: '08:00',
+        durationMinutes: 75,
+        available: false,
+        effectiveAtMs: cn101DepMs - 1_000,
+      },
+    ],
+  };
+  const returnUnavailable: FlightUpdates = {
+    CN102: [
+      {
+        departureLocal: '10:30',
+        durationMinutes: 75,
+        available: false,
+        effectiveAtMs: cn102DepMs - 1_000,
+      },
+    ],
+  };
+
+  it('rejects an unavailable outbound flight with its own message', () => {
+    expect(
+      validatePurchase(
+        makeSelection(),
+        oneSeat,
+        0,
+        minorista,
+        outboundUnavailable,
+      ),
+    ).toBe(
+      'El vuelo CN101 del 2026-11-10 no está disponible para reservar.',
+    );
+  });
+
+  it('rejects an unavailable return flight with its own message', () => {
+    expect(
+      validatePurchase(
+        makeSelection(),
+        oneSeat,
+        0,
+        minorista,
+        returnUnavailable,
+      ),
+    ).toBe(
+      'El vuelo CN102 del 2026-11-16 no está disponible para reservar.',
+    );
+  });
+
+  it('reports the outbound first when both legs are unavailable', () => {
+    expect(
+      validatePurchase(makeSelection(), oneSeat, 0, minorista, {
+        ...outboundUnavailable,
+        ...returnUnavailable,
+      }),
+    ).toBe(
+      'El vuelo CN101 del 2026-11-10 no está disponible para reservar.',
+    );
+  });
+
+  it('checks availability before seat validity', () => {
+    expect(
+      validatePurchase(
+        makeSelection(),
+        { outbound: ['X9'], return: [] },
+        0,
+        minorista,
+        outboundUnavailable,
+      ),
+    ).toBe(
+      'El vuelo CN101 del 2026-11-10 no está disponible para reservar.',
+    );
+  });
+
+  it('never builds a purchase for an unavailable flight', () => {
+    expect(
+      buildPurchase(
+        makeSelection(),
+        oneSeat,
+        0,
+        minorista,
+        'CN-0001',
+        outboundUnavailable,
+      ),
+    ).toBeNull();
+  });
+
+  it('keeps an already-departed occurrence bookable (historical state)', () => {
+    // The same update was recorded after the 11-10 departure; a later
+    // occurrence keeps the base (available) state.
+    const late: FlightUpdates = {
+      CN101: [
+        {
+          departureLocal: '08:00',
+          durationMinutes: 75,
+          available: false,
+          effectiveAtMs: cn101DepMs + 1_000,
+        },
+      ],
+    };
+    expect(
+      validatePurchase(makeSelection(), oneSeat, 0, minorista, late),
+    ).toBeNull();
   });
 });
 

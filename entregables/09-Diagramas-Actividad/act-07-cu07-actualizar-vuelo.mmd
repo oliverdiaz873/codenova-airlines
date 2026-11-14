@@ -1,0 +1,19 @@
+%% CU-07 — Actualizar información de vuelo (nivel medio)
+flowchart TD
+    A((Inicio)) --> B[Agente abre /agente y selecciona un número de vuelo]
+    B --> C[Sistema muestra datos protegidos y horario vigente]
+    C --> D[Agente edita hora de salida y/o duración]
+    D --> E{¿Cambios presentes?}
+    E -- No --> F[«No hay cambios que guardar»; sin actualización]
+    F --> Z((Fin))
+    E -- Sí --> G{¿Datos válidos? HH:mm 00:00-23:59; duración entera > 0}
+    G -- No --> H[Mensaje de validación; sin actualización]
+    H --> D
+    G -- Sí --> I[applyFlightUpdate: nueva versión con effectiveAtMs]
+    I --> J{¿Transición ok?}
+    J -- Fallo simulado o error --> K[«No se pudo completar la actualización»; estado intacto]
+    K --> Z
+    J -- Sí --> L[Commit: flightUpdates en memoria]
+    L --> M[Horario vigente en búsqueda, reservas, correos futuros y landing]
+    M --> N[Ocurrencias ya salidas conservan horario histórico]
+    N --> O((Fin))

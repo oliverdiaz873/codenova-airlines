@@ -112,6 +112,13 @@
   gap: var(--space-md);
 }
 
+.agent__field--checkbox {
+  flex-direction: row;
+  align-items: center;
+  align-self: end;
+  gap: var(--space-sm);
+}
+
 .agent__hint {
   color: var(--cn-gray-600);
   font-size: 0.9375rem;
@@ -138,4 +145,28 @@
 
 .agent__save {
   margin-top: var(--space-sm);
+}
+
+/* D-14: transactional pages stay usable on small screens. */
+@media (max-width: 640px) {
+  .agent {
+    padding: var(--space-lg) 0;
+  }
+
+  .agent__title {
+    font-size: 1.6rem;
+  }
+
+  .agent__card {
+    padding: var(--space-md);
+  }
+
+  .agent__info-row {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+
+  .agent__form {
+    grid-template-columns: 1fr;
+  }
 }

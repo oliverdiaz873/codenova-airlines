@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { formatCurrency } from '@/data/flights';
-import { todayISO } from '@/lib/dates';
 import {
   PASSENGER_KIND_LABELS,
   passengerKinds,
@@ -19,9 +18,9 @@ import {
   milesToDiscount,
   validateRedemptionMiles,
 } from '@/lib/miles';
+import { scheduledServiceForDate } from '@/lib/flightUpdate';
 import {
   availableSeatCount,
-  demoOccupiedSeats,
   occupiedSeatIds,
   userOccupiedSeats,
   validateSeatAvailability,
@@ -77,10 +76,12 @@ export function BookingPage() {
     syncAccrual,
     activeCustomer,
     flightUpdates,
+    connectionUpdates,
   } = useBooking();
   const selection: SearchSelection | null = isValidSearchSelection(
     rawSelection,
     flightUpdates,
+    connectionUpdates,
   )
     ? rawSelection
     : null;
@@ -107,8 +108,10 @@ export function BookingPage() {
   );
   const total = selection?.totalPassengers ?? 0;
 
-  const demoOccupancy = useMemo(() => demoOccupiedSeats(todayISO()), []);
-  const userOccupancy = useMemo(() => userOccupiedSeats(purchases), [purchases]);
+  // D-11: one occupancy map derived from every confirmed purchase. The
+  // demonstration reservations are seeded as purchases by BookingProvider,
+  // so demo and user seats share a single source of truth.
+  const occupancy = useMemo(() => userOccupiedSeats(purchases), [purchases]);
 
   const legInfo = useMemo(() => {
     if (!selection) return null;
@@ -130,17 +133,15 @@ export function BookingPage() {
       ida: occupiedSeatIds(
         legInfo.ida.flightNumber,
         legInfo.ida.date,
-        demoOccupancy,
-        userOccupancy,
+        occupancy,
       ),
       vuelta: occupiedSeatIds(
         legInfo.vuelta.flightNumber,
         legInfo.vuelta.date,
-        demoOccupancy,
-        userOccupancy,
+        occupancy,
       ),
     };
-  }, [legInfo, demoOccupancy, userOccupancy]);
+  }, [legInfo, occupancy]);
 
   const capacityOk = useMemo(() => {
     if (!legInfo) return false;
@@ -149,11 +150,26 @@ export function BookingPage() {
         availableSeatCount(
           legInfo[l].flightNumber,
           legInfo[l].date,
-          demoOccupancy,
-          userOccupancy,
+          occupancy,
         ) >= total,
     );
-  }, [legInfo, demoOccupancy, userOccupancy, total]);
+  }, [legInfo, occupancy, total]);
+
+  // CU-04 alternate 2: detect a flight marked unavailable by CU-07 before
+  // the seat map, so the customer gets an explanation instead of choosing
+  // seats for a flight that cannot be booked.
+  const unavailableLeg = useMemo(() => {
+    if (!selection) return null;
+    for (const leg of [selection.outbound, selection.returnFlight]) {
+      const service = scheduledServiceForDate(
+        leg.flightNumber,
+        flightUpdates,
+        leg.date,
+      );
+      if (service && service.available === false) return leg;
+    }
+    return null;
+  }, [selection, flightUpdates]);
 
   // C-1.5: a visitor without a session sees the account gate on /reservar
   // itself — "Crear cuenta" (register) and "Ya soy cliente" (login), both
@@ -251,8 +267,7 @@ export function BookingPage() {
   const handleContinueToReview = () => {
     const availabilityError = validateSeatAvailability(
       buildRequests(),
-      demoOccupancy,
-      userOccupancy,
+      occupancy,
     );
     if (availabilityError) {
       setError(availabilityError);
@@ -296,8 +311,7 @@ export function BookingPage() {
     };
     const availabilityError = validateSeatAvailability(
       buildRequests(),
-      demoOccupancy,
-      userOccupancy,
+      occupancy,
     );
     if (availabilityError) {
       setError(availabilityError);
@@ -310,6 +324,7 @@ export function BookingPage() {
       milesUsed,
       customer,
       flightUpdates,
+      connectionUpdates,
     );
     if (purchaseError) {
       setError(purchaseError);
@@ -341,6 +356,24 @@ export function BookingPage() {
   ]
     .filter(Boolean)
     .join(' · ');
+
+  if (unavailableLeg) {
+    return (
+      <main className="booking">
+        <section className="booking__card">
+          <h1 className="booking__title">Reserva de vuelos</h1>
+          <p className="booking__text" role="alert">
+            El vuelo {unavailableLeg.flightNumber} del{' '}
+            {formatDateLong(unavailableLeg.date)} no está disponible para
+            reservar. Vuelve a buscar y elige otro vuelo.
+          </p>
+          <Link to="/buscar" className="btn btn-primary">
+            Nueva búsqueda
+          </Link>
+        </section>
+      </main>
+    );
+  }
 
   if (!capacityOk) {
     return (
@@ -462,6 +495,14 @@ export function BookingPage() {
               <span>
                 <i className="booking__legend-dot booking__legend-dot--occupied" />
                 Ocupado
+              </span>
+              <span>
+                <i className="booking__legend-dot booking__legend-dot--window" />
+                Ventana
+              </span>
+              <span>
+                <i className="booking__legend-dot booking__legend-dot--wing" />
+                Zona del ala
               </span>
             </div>
 
