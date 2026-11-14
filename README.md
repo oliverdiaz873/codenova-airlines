@@ -14,6 +14,31 @@ de pagos.
 
 ## Estructura del repositorio
 
-En esta etapa el repositorio contiene únicamente planificación y documentación
-académica. La implementación se incorporará cuando el alcance funcional y
-visual esté aprobado.
+- `app/` — prototipo frontend (React + Vite + TypeScript).
+- `PLAN_CODENOVA.md` — plan funcional y estado.
+- `archivos importantes/` — documentos académicos.
+
+## Casos de uso en el prototipo
+
+| Caso de uso | Pantalla |
+|---|---|
+| CU-01 Consultar información de vuelo | `/` (landing, sección de rutas) |
+| CU-02 Registrar cliente | `/ingresar?mode=register` |
+| CU-03 Buscar vuelos (destino y hora de partida) | `/buscar` |
+| CU-04 Reservar vuelo (número de vuelo y asiento) | `/reservar` |
+| CU-05 Enviar confirmación por correo (simulado) | `/confirmacion` |
+| CU-06 Cancelar reservación | `/panel/reservas` |
+| CU-07 Actualizar información de vuelo (agente) | `/agente` |
+
+Cuentas de demostración (ingreso sin contraseña): `minorista@codenova.demo`,
+`corporativo@codenova.demo` y `correo-fallido@codenova.demo`.
+
+## Ejecutar en local
+
+```bash
+cd app
+npm install
+npm run dev     # servidor de desarrollo
+npm test        # pruebas
+npm run build   # compilación de producción
+```

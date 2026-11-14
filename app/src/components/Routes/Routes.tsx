@@ -60,6 +60,14 @@ export function Routes() {
           ))}
         </div>
 
+        {/* CU-01, escenario alternativo 1 (Paso 5): información no disponible. */}
+        {connections.length === 0 && (
+          <p className="routes__empty" role="status">
+            No hay información de vuelos disponible en este momento. Vuelve a
+            consultar más tarde.
+          </p>
+        )}
+
         <div className="routes__grid">
           {connections.map((conn) => (
             <article className="route-card" key={conn.id} id={`route-${conn.id}`}>

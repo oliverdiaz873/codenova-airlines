@@ -7,6 +7,11 @@ import {
 } from 'react-router';
 import { type DemoCustomer } from '@/data/customers';
 import { useAccrualSync } from '@/components/BookingProvider/useBooking';
+import {
+  isValidEmail,
+  isValidPhone,
+  registrationMissingFields,
+} from '@/lib/registration';
 import './LoginPage.css';
 
 /** Internal destinations allowed for contextual return after login (C-1). */
@@ -51,7 +56,10 @@ export function LoginPage({
   const [name, setName] = useState('');
   const [customerType, setCustomerType] = useState<DemoCustomer['type']>('Minorista');
   const [company, setCompany] = useState('');
+  const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
+  const [missingFields, setMissingFields] = useState<string[]>([]);
   useAccrualSync();
 
   const handleLogout = () => {
@@ -80,7 +88,35 @@ export function LoginPage({
     event.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
 
+    // CU-02, escenario alternativo 3 (Paso 5): datos incompletos. The system
+    // points out which required data is missing and the registration does
+    // not finish until it is complete.
+    const missing = registrationMissingFields({
+      name,
+      address,
+      phone,
+      email,
+      company,
+      customerType,
+    });
+    if (missing.length > 0) {
+      setMissingFields(missing);
+      setError(`Completa los datos que faltan: ${missing.join(', ')}.`);
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setMissingFields(['Correo electrónico']);
+      setError('Escribe un correo electrónico válido (por ejemplo, nombre@ejemplo.com).');
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      setMissingFields(['Teléfono']);
+      setError('El teléfono debe tener al menos 10 dígitos (por ejemplo, 809-555-0123).');
+      return;
+    }
+
     if (customers.some((customer) => customer.email === normalizedEmail)) {
+      setMissingFields([]);
       setError('Ya existe una cuenta con ese correo. Inicia sesión o usa otra dirección.');
       return;
     }
@@ -90,15 +126,23 @@ export function LoginPage({
       type: customerType,
       miles: 0,
       name: name.trim(),
+      address: address.trim(),
+      phone: phone.trim(),
       ...(customerType === 'Corporativo' ? { company: company.trim() } : {}),
     };
 
+    setMissingFields([]);
     setError('');
     onRegister(newCustomer);
     navigate(postLoginTarget, { replace: true });
   };
 
+  const isMissing = (label: string) => missingFields.includes(label);
+  const registerInputClass = (label: string) =>
+    `login-form__input${isMissing(label) ? ' login-form__input--error' : ''}`;
+
   const changeMode = (nextMode: 'login' | 'register') => {
+    setMissingFields([]);
     const params: Record<string, string> =
       nextMode === 'register' ? { mode: 'register' } : {};
     if (from) params.from = from;
@@ -226,23 +270,53 @@ export function LoginPage({
                 Completa tus datos para registrarte. Las cuentas nuevas comienzan con 0 millas.
               </p>
 
-              <form onSubmit={handleRegister}>
+              <form onSubmit={handleRegister} noValidate>
                 <label className="login-form__label" htmlFor="register-name">Nombre completo</label>
                 <input
                   autoComplete="name"
-                  className="login-form__input"
+                  className={registerInputClass('Nombre completo')}
                   id="register-name"
                   name="name"
                   type="text"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
+                  aria-invalid={isMissing('Nombre completo')}
+                  required
+                />
+
+                <label className="login-form__label" htmlFor="register-address">Dirección</label>
+                <input
+                  autoComplete="street-address"
+                  className={registerInputClass('Dirección')}
+                  id="register-address"
+                  name="address"
+                  type="text"
+                  placeholder="Calle, número, sector y ciudad"
+                  value={address}
+                  onChange={(event) => setAddress(event.target.value)}
+                  aria-invalid={isMissing('Dirección')}
+                  required
+                />
+
+                <label className="login-form__label" htmlFor="register-phone">Teléfono</label>
+                <input
+                  autoComplete="tel"
+                  className={registerInputClass('Teléfono')}
+                  id="register-phone"
+                  name="phone"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="809-555-0123"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  aria-invalid={isMissing('Teléfono')}
                   required
                 />
 
                 <label className="login-form__label" htmlFor="register-email">Correo electrónico</label>
                 <input
                   autoComplete="email"
-                  className={`login-form__input${error ? ' login-form__input--error' : ''}`}
+                  className={`login-form__input${error && (missingFields.length === 0 || isMissing('Correo electrónico')) ? ' login-form__input--error' : ''}`}
                   id="register-email"
                   name="email"
                   type="email"
@@ -250,10 +324,10 @@ export function LoginPage({
                   value={email}
                   onChange={(event) => {
                     setEmail(event.target.value);
-                    if (error) setError('');
+                    if (error && missingFields.length === 0) setError('');
                   }}
                   aria-describedby={error ? 'register-error' : undefined}
-                  aria-invalid={Boolean(error)}
+                  aria-invalid={Boolean(error) && (missingFields.length === 0 || isMissing('Correo electrónico'))}
                   required
                 />
 
@@ -274,7 +348,8 @@ export function LoginPage({
                     <label className="login-form__label" htmlFor="register-company">Nombre de la compañía</label>
                     <input
                       autoComplete="organization"
-                      className="login-form__input"
+                      className={registerInputClass('Nombre de la compañía')}
+                      aria-invalid={isMissing('Nombre de la compañía')}
                       id="register-company"
                       name="company"
                       type="text"
