@@ -1,6 +1,6 @@
 # SkyNova Airlines — Análisis de tareas e interfaz gráfica (Paso 10)
 
-**Curso:** INF-3290 · **Proyecto:** SkyNova Airlines (prototipo académico frontend) · **Base:** implementación real en `app/` del árbol de trabajo local reconciliado con el PR #1 (commit definitivo pendiente).
+**Curso:** INF-3290 · **Proyecto:** SkyNova Airlines (prototipo académico frontend) · **Base:** implementación real en `app/` de `main` local (commit `c88dcde` + merge `0e59567` con `origin/main`; push pendiente).
 
 ## 1. Objetivo de la interfaz
 

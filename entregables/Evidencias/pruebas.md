@@ -1,6 +1,6 @@
 # Evidencia de pruebas — SkyNova Airlines
 
-**Fecha de ejecución:** 14/11/2026 · **Estado del código probado:** árbol de trabajo local con la reconciliación del PR #1 (cambios sin confirmar en Git; `main` local en `6b8f2e8`, `origin/main` en `96453fce`).
+**Fecha de ejecución:** 14/11/2026 · **Estado del código probado:** `main` local en el merge `0e59567` (commit de reconciliación `c88dcde` + `origin/main` `96453fce` con el PR #1; push pendiente de autorización).
 
 ## Comandos y resultados (ejecutados en esta sesión, `app/`)
 
