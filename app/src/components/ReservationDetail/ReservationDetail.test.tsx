@@ -84,3 +84,35 @@ describe('ReservationDetail — mileage accrual demo', () => {
     ).toBeVisible();
   });
 });
+
+describe('ReservationDetail — CU-06 alternate flow (Paso 3.3): reservation not found', () => {
+  it('shows the not-found state for an unknown reservation code', async () => {
+    renderDetail('CN-9999', 'minorista@codenova.demo');
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Reservación no encontrada',
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /No existe una reservación con ese código en tu cuenta/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('link', { name: 'Mis reservaciones' }),
+    ).toHaveAttribute('href', '/panel/reservas');
+  });
+
+  it('hides a reservation owned by another customer', async () => {
+    // CN-9004 exists but belongs to the corporate demo account; the
+    // retail session must not see it (ownership check, D-4).
+    renderDetail('CN-9004', 'minorista@codenova.demo');
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Reservación no encontrada',
+      }),
+    ).toBeVisible();
+  });
+});

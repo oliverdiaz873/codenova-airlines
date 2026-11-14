@@ -1,8 +1,11 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { initialCustomers } from '@/data/customers';
+import { formatCurrency } from '@/data/flights';
+import { distanceMilesForRoute } from '@/data/routeDistances';
 import {
   addDaysISO,
   nextOperatingDateOnOrAfter,
@@ -115,5 +118,78 @@ describe('BookingPage — CU-04 guards', () => {
     expect(
       await screen.findByText(/No hay una búsqueda seleccionada/),
     ).toBeVisible();
+  });
+});
+
+function renderCorporateBooking(state: unknown) {
+  render(
+    <BookingProvider>
+      <MemoryRouter
+        initialEntries={[{ pathname: '/reservar', state }]}
+      >
+        <LoginAs email="corporativo@codenova.demo" />
+        <Routes>
+          <Route path="/reservar" element={<BookingPage />} />
+        </Routes>
+      </MemoryRouter>
+    </BookingProvider>,
+  );
+}
+
+async function reachReviewStep() {
+  const seatMap = await screen.findByRole('group', {
+    name: 'Mapa de asientos del avión',
+  });
+  const pickFirstAvailable = async () => {
+    const free = within(seatMap)
+      .getAllByRole('button', { name: /disponible$/ })[0];
+    await userEvent.click(free);
+  };
+  await pickFirstAvailable();
+  await userEvent.click(screen.getByRole('tab', { name: /Regreso/ }));
+  await pickFirstAvailable();
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Continuar' }),
+  );
+}
+
+describe('BookingPage — CU-04 alternate flow (Paso 3.3): miles redemption', () => {
+  it('shows the corporate balance, validates the amount and previews the discount', async () => {
+    const selection = validSelection();
+    renderCorporateBooking(selection);
+    await reachReviewStep();
+
+    // The corporate balance includes the lazily credited accrual demo miles
+    // (CN-9004): 10,000 base + route distance x 2 legs x 1 passenger.
+    const expectedBalance = (
+      10000 + (distanceMilesForRoute('sdq-sju') ?? 0) * 2
+    ).toLocaleString('es-DO');
+    const balanceText = await screen.findByText(/Saldo disponible:/);
+    expect(balanceText).toHaveTextContent(expectedBalance);
+    expect(balanceText).toHaveTextContent('millas');
+
+    const milesInput = screen.getByLabelText('Millas a canjear');
+
+    fireEvent.change(milesInput, { target: { value: '500' } });
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /El canje mínimo es .* millas\./,
+    );
+
+    fireEvent.change(milesInput, { target: { value: '2500' } });
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /El canje debe ser en pasos de .* millas\./,
+    );
+
+    fireEvent.change(milesInput, { target: { value: '2000' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Descuento por millas/),
+    ).toBeInTheDocument();
+    expect(screen.getByText('−RD$200')).toBeInTheDocument();
+
+    const totalRow = screen.getByText('Total neto').closest('.booking__row');
+    expect(totalRow).toHaveTextContent(
+      formatCurrency(selection.totalPrice - 200),
+    );
   });
 });

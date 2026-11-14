@@ -96,3 +96,38 @@ describe('SearchPage — CU-07 availability (D-8)', () => {
     ).toBe(true);
   });
 });
+
+describe('SearchPage — CU-03 alternate flow (Paso 3.3): no matching flights', () => {
+  it('shows the empty-state message and keeps Continuar disabled', async () => {
+    renderSearch();
+    // The sdq-sju outbound services depart at 08:00 and 17:00, so the
+    // evening slot never matches an outbound departure on any date.
+    await userEvent.selectOptions(
+      screen.getByLabelText('Hora de partida (ida)'),
+      'Noche (18:00 – 04:59)',
+    );
+    await fillDatesAndSearch();
+
+    const outbound = outboundGroup();
+    expect(
+      await outbound.findByText(
+        /No existen vuelos de ida que coincidan con la hora de partida elegida/,
+      ),
+    ).toBeVisible();
+
+    // The summary (and its Continuar button) only renders once some leg is
+    // selected; picking a return flight still cannot enable it.
+    const returning = within(
+      screen.getByRole('region', { name: /Vuelo de regreso/ }),
+    );
+    await userEvent.click(
+      (await returning.findAllByRole('button', { name: 'Seleccionar' }))[0],
+    );
+    expect(
+      await screen.findByText(/Selecciona el vuelo de ida y el de regreso/),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Continuar' }),
+    ).toBeDisabled();
+  });
+});
