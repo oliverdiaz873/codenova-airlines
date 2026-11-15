@@ -74,6 +74,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-lg);
+  margin-left: auto;
+  margin-right: var(--space-lg);
 }
 
 .navbar__link {
@@ -205,9 +207,19 @@
   .navbar__mobile-login {
     display: inline-flex;
     align-items: center;
-    min-height: 2.5rem;
+    justify-content: center;
+    min-height: 2.25rem;
     margin-left: auto;
-    margin-right: 1rem;
+    margin-right: 0.75rem;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid rgba(16, 42, 67, 0.28);
+    border-radius: var(--radius-pill);
+    background: #102A43;
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
   .navbar__toggle-bar {
@@ -220,6 +232,7 @@
     left: 0;
     right: 0;
     bottom: 0;
+    margin: 0;
     flex-direction: column;
     justify-content: center;
     align-items: center;

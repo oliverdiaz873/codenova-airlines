@@ -12,6 +12,7 @@ export function Hero() {
             loop
             playsInline
             preload="auto"
+            poster="/videos/hero-poster.webp"
             tabIndex={-1}
           >
             <source src="/videos/hero-video.mp4" type="video/mp4" />
