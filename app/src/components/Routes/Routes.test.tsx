@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { FLIGHT_CONNECTIONS } from '@/data/flights';
 import { BookingProvider } from '@/components/BookingProvider/BookingProvider';
 import { Routes as CatalogRoutes } from '@/components/Routes/Routes';
 
 function renderCatalog(catalog?: typeof FLIGHT_CONNECTIONS) {
   return render(
-    <BookingProvider>
-      <CatalogRoutes catalog={catalog} />
-    </BookingProvider>,
+    <MemoryRouter>
+      <BookingProvider>
+        <CatalogRoutes catalog={catalog} />
+      </BookingProvider>
+    </MemoryRouter>,
   );
 }
 

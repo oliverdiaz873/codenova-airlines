@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { FLIGHT_CONNECTIONS, DAYS_OF_OPERATION, formatCurrency } from '@/data/flights';
 import type { FlightConnection } from '@/data/flights';
 import { SCHEDULED_SERVICES } from '@/data/scheduledServices';
@@ -156,6 +157,41 @@ export function Routes({ catalog = FLIGHT_CONNECTIONS }: RoutesProps = {}) {
                 </div>
               </article>
             ))}
+
+            {/* Decorative promo card: fills the 6th grid cell without
+                inventing a route. It closes the 3×2 layout on wide screens. */}
+            <aside
+              className="route-ticket"
+              aria-label="Promoción para reservar vuelos"
+            >
+              <img
+                className="route-ticket__image"
+                src="/azafata_modelo.webp"
+                alt="Azafata de SkyNova Airlines en la terminal del aeropuerto"
+                loading="lazy"
+              />
+              <div className="route-ticket__shade" aria-hidden="true" />
+              <div className="route-ticket__brand">
+                <span className="route-ticket__brand-accent">SkyNova</span>{' '}
+                Airlines
+              </div>
+              <div className="route-ticket__body">
+                <span className="route-ticket__eyebrow">
+                  {connections.length} conexiones directas
+                </span>
+                <h3 className="route-ticket__title">¿A dónde volamos hoy?</h3>
+                <div className="route-ticket__perforation" aria-hidden="true">
+                  <span className="route-ticket__line" />
+                  <span className="route-ticket__plane">✈</span>
+                  <span className="route-ticket__line" />
+                </div>
+                <div className="route-ticket__footer">
+                  <Link to="/buscar" className="route-ticket__link">
+                    Buscar vuelos <span aria-hidden="true">→</span>
+                  </Link>
+                </div>
+              </div>
+            </aside>
           </div>
         )}
 
